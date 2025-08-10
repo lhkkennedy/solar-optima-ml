@@ -34,7 +34,7 @@ jobs:
           MAJOR_MINOR=$(echo "$TAG" | cut -d. -f1-2)
           echo "mm=$MAJOR_MINOR" >> $GITHUB_OUTPUT
 
-      - name: Build and push image
+      - name: Build and push image to GHCR
         run: |
           IMAGE=ghcr.io/${{ github.repository }}
           docker build -t $IMAGE:${{ steps.vars.outputs.tag }} -t $IMAGE:${{ steps.vars.outputs.mm }} -t $IMAGE:latest .
@@ -53,6 +53,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Auth to GCP
         uses: google-github-actions/auth@v2
         with:
@@ -61,13 +68,27 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Push image to Artifact Registry (GAR)
+        run: |
+          SRC_IMAGE="ghcr.io/${{ github.repository }}:${{ needs.release.outputs.tag }}"
+          GAR_HOST="${{ secrets.GCP_REGION }}-docker.pkg.dev"
+          GAR_REPO="${GAR_HOST}/${{ secrets.GCP_PROJECT_ID }}/solaroptima-ml/solaroptima-ml"
+          GAR_IMAGE="${GAR_REPO}:${{ needs.release.outputs.tag }}"
+          echo "Pulling $SRC_IMAGE"
+          docker pull "$SRC_IMAGE"
+          echo "Tagging and pushing to $GAR_IMAGE"
+          docker tag "$SRC_IMAGE" "$GAR_IMAGE"
+          gcloud auth configure-docker "$GAR_HOST" -q
+          docker push "$GAR_IMAGE"
+
       - name: Deploy to Cloud Run (dev)
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}:${{ needs.release.outputs.tag }}"
+          GAR_HOST="${{ secrets.GCP_REGION }}-docker.pkg.dev"
+          GAR_IMAGE="${GAR_HOST}/${{ secrets.GCP_PROJECT_ID }}/solaroptima-ml/solaroptima-ml:${{ needs.release.outputs.tag }}"
           gcloud run deploy solaroptima-ml-dev \
             --project="${{ secrets.GCP_PROJECT_ID }}" \
             --region="${{ secrets.GCP_REGION }}" \
-            --image="$IMAGE" \
+            --image="$GAR_IMAGE" \
             --platform=managed \
             --allow-unauthenticated \
             --min-instances=0 \
@@ -89,11 +110,12 @@ jobs:
 
       - name: Deploy to Cloud Run (staging)
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}:${{ needs.release.outputs.tag }}"
+          GAR_HOST="${{ secrets.GCP_REGION }}-docker.pkg.dev"
+          GAR_IMAGE="${GAR_HOST}/${{ secrets.GCP_PROJECT_ID }}/solaroptima-ml/solaroptima-ml:${{ needs.release.outputs.tag }}"
           gcloud run deploy solaroptima-ml-staging \
             --project="${{ secrets.GCP_PROJECT_ID }}" \
             --region="${{ secrets.GCP_REGION }}" \
-            --image="$IMAGE" \
+            --image="$GAR_IMAGE" \
             --platform=managed \
             --allow-unauthenticated \
             --min-instances=0 \
@@ -115,11 +137,12 @@ jobs:
 
       - name: Deploy to Cloud Run (prod)
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}:${{ needs.release.outputs.tag }}"
+          GAR_HOST="${{ secrets.GCP_REGION }}-docker.pkg.dev"
+          GAR_IMAGE="${GAR_HOST}/${{ secrets.GCP_PROJECT_ID }}/solaroptima-ml/solaroptima-ml:${{ needs.release.outputs.tag }}"
           gcloud run deploy solaroptima-ml-prod \
             --project="${{ secrets.GCP_PROJECT_ID }}" \
             --region="${{ secrets.GCP_REGION }}" \
-            --image="$IMAGE" \
+            --image="$GAR_IMAGE" \
             --platform=managed \
             --allow-unauthenticated \
             --min-instances=0 \
