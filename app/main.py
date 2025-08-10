@@ -1,12 +1,15 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from typing import List, Tuple
 import base64
 import io
 from PIL import Image
 import numpy as np
 
 from app.models.segmentation import SegmentationModel
+from app.models.pitch_estimator import PitchEstimator
 
 app = FastAPI(
     title="SolarOptima ML Service",
@@ -23,8 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize segmentation model
+# Initialize models
 segmentation_model = SegmentationModel()
+pitch_estimator = PitchEstimator()
 
 @app.get("/health")
 async def health_check():
@@ -84,6 +88,79 @@ async def infer_segmentation(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Segmentation failed: {str(e)}")
 
+# Add new Pydantic models for pitch endpoint
+class Coordinates(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90, description="Latitude coordinate")
+    longitude: float = Field(..., ge=-180, le=180, description="Longitude coordinate")
+
+class PitchRequest(BaseModel):
+    coordinates: Coordinates
+    segmentation_mask: str = Field(..., description="Base64 encoded segmentation mask")
+    image_size: List[int] = Field(..., min_length=2, max_length=2, description="Original image size [width, height]")
+
+class PitchResponse(BaseModel):
+    pitch_degrees: float
+    area_m2: float
+    confidence: float
+    roof_type: str
+    orientation: str
+    height_m: float
+    slope_percentage: float
+
+@app.post("/pitch", response_model=PitchResponse)
+async def estimate_pitch(request: PitchRequest):
+    """
+    Estimate roof pitch from coordinates and segmentation mask
+    
+    Args:
+        request: PitchRequest with coordinates and segmentation mask
+    
+    Returns:
+        PitchResponse with pitch estimation results
+    """
+    try:
+        # Validate coordinates are within UK
+        if not pitch_estimator.dsm_service.is_within_uk(
+            request.coordinates.latitude, 
+            request.coordinates.longitude
+        ):
+            raise HTTPException(
+                status_code=400, 
+                detail="Coordinates must be within UK bounds"
+            )
+        
+        # Validate image size
+        if len(request.image_size) != 2 or request.image_size[0] < 256 or request.image_size[1] < 256:
+            raise HTTPException(
+                status_code=400,
+                detail="Image size must be at least 256x256 pixels"
+            )
+        
+        # Estimate pitch
+        pitch_estimate = pitch_estimator.estimate_pitch(
+            latitude=request.coordinates.latitude,
+            longitude=request.coordinates.longitude,
+            segmentation_mask=request.segmentation_mask,
+            image_size=tuple(request.image_size)
+        )
+        
+        return PitchResponse(
+            pitch_degrees=round(pitch_estimate.pitch_degrees, 1),
+            area_m2=round(pitch_estimate.area_m2, 1),
+            confidence=round(pitch_estimate.confidence, 2),
+            roof_type=pitch_estimate.roof_type,
+            orientation=pitch_estimate.orientation,
+            height_m=round(pitch_estimate.height_m, 1),
+            slope_percentage=round(pitch_estimate.slope_percentage, 1)
+        )
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pitch estimation failed: {str(e)}")
+
 @app.get("/")
 async def root():
     """Root endpoint with service information"""
@@ -93,6 +170,7 @@ async def root():
         "endpoints": {
             "health": "/health",
             "infer": "/infer",
+            "pitch": "/pitch",
             "docs": "/docs"
         }
     } 
