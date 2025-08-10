@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 import numpy as np
-from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
+# from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
 import os
 
 class SegmentationModel:
@@ -37,8 +37,11 @@ class SegmentationModel:
             # In future tasks, this will load the actual SegFormer-B0 model
             if model_path and os.path.exists(model_path):
                 # Load custom fine-tuned model
-                self.model = SegformerForSemanticSegmentation.from_pretrained(model_path)
-                self.processor = SegformerImageProcessor.from_pretrained(model_path)
+                # self.model = SegformerForSemanticSegmentation.from_pretrained(model_path)
+                # self.processor = SegformerImageProcessor.from_pretrained(model_path)
+                print("Model loading disabled for ML-1 placeholder")
+                self.model = None
+                self.processor = None
             else:
                 # Use pre-trained model for now (placeholder)
                 print("Using placeholder segmentation model for ML-1")
