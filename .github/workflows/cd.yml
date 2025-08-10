@@ -1,0 +1,127 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      mm: ${{ steps.vars.outputs.mm }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: vars
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          MAJOR_MINOR=$(echo "$TAG" | cut -d. -f1-2)
+          echo "mm=$MAJOR_MINOR" >> $GITHUB_OUTPUT
+
+      - name: Build and push image
+        run: |
+          IMAGE=ghcr.io/${{ github.repository }}
+          docker build -t $IMAGE:${{ steps.vars.outputs.tag }} -t $IMAGE:${{ steps.vars.outputs.mm }} -t $IMAGE:latest .
+          docker push $IMAGE:${{ steps.vars.outputs.tag }}
+          docker push $IMAGE:${{ steps.vars.outputs.mm }}
+          docker push $IMAGE:latest
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          generate_release_notes: true
+
+  deploy-dev:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run (dev)
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}:${{ needs.release.outputs.tag }}"
+          gcloud run deploy solaroptima-ml-dev \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --region="${{ secrets.GCP_REGION }}" \
+            --image="$IMAGE" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --min-instances=0 \
+            --max-instances=3 \
+            --set-env-vars LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},DSM_CACHE_ENABLED=${{ secrets.DSM_CACHE_ENABLED || 'true' }},USE_PLACEHOLDER_PVGIS=${{ secrets.USE_PLACEHOLDER_PVGIS || 'true' }},USE_PLACEHOLDER_BEIS=${{ secrets.USE_PLACEHOLDER_BEIS || 'true' }}
+
+  deploy-staging:
+    needs: [release, deploy-dev]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run (staging)
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}:${{ needs.release.outputs.tag }}"
+          gcloud run deploy solaroptima-ml-staging \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --region="${{ secrets.GCP_REGION }}" \
+            --image="$IMAGE" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --min-instances=0 \
+            --max-instances=3 \
+            --set-env-vars LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},DSM_CACHE_ENABLED=${{ secrets.DSM_CACHE_ENABLED || 'true' }},USE_PLACEHOLDER_PVGIS=${{ secrets.USE_PLACEHOLDER_PVGIS || 'true' }},USE_PLACEHOLDER_BEIS=${{ secrets.USE_PLACEHOLDER_BEIS || 'true' }}
+
+  deploy-prod:
+    needs: [release, deploy-staging]
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Auth to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run (prod)
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}:${{ needs.release.outputs.tag }}"
+          gcloud run deploy solaroptima-ml-prod \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --region="${{ secrets.GCP_REGION }}" \
+            --image="$IMAGE" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --min-instances=0 \
+            --max-instances=3 \
+            --set-env-vars LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},DSM_CACHE_ENABLED=${{ secrets.DSM_CACHE_ENABLED || 'true' }},USE_PLACEHOLDER_PVGIS=${{ secrets.USE_PLACEHOLDER_PVGIS || 'true' }},USE_PLACEHOLDER_BEIS=${{ secrets.USE_PLACEHOLDER_BEIS || 'true' }}

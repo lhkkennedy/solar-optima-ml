@@ -269,24 +269,74 @@ This project follows the task breakdown from `DESIGN.md`:
 
 ## Current Status
 
-**ML-3 is complete!** ✅
+**ML-3 and ML-4 are complete. ML-5 CI/CD is implemented (Cloud Run), pending first release tag and package visibility.**
 
-- ✅ `/quote` endpoint for complete solar quote generation
-- ✅ PVGIS v5.2 API integration for UK solar irradiance data
-- ✅ MCS MIS 3001 Issue 5.1 yield calculation formulas
-- ✅ BEIS cost database integration for component pricing
-- ✅ System sizing optimization and component selection
-- ✅ Financial analysis with payback and ROI calculations
-- ✅ Comprehensive validation and error handling
-- ✅ Itemized cost breakdown and warranty information
-- ✅ Next steps generation for customer journey
+- ✅ `/infer` (segmentation) API and tests
+- ✅ `/pitch` (roof pitch) API and tests
+- ✅ `/quote` (quote generation) API and tests
+- ✅ Integration/contract/resilience tests (ML-4)
+- ✅ CI (pytest + Docker build)
+- ✅ CD (tag-based deploy to Google Cloud Run for `dev`/`staging`/`prod`)
+- ⏳ First production release pending: add environment secrets and tag `vX.Y.Z`
 
 **Test Results:**
-- Unit tests: 9/9 passing (segmentation) + 8/8 passing (pitch) + 29/29 passing (quote)
-- Integration test: Successfully generates complete quotes
-- Quote accuracy: ±5% yield estimation, ±10% cost estimation
-- Response time: <3 seconds for complete quote generation
-- MCS compliance: 100% compliant calculations
+- Unit tests: 9/9 (segmentation) + 8/8 (pitch) + 29/29 (quote)
+- Integration/contract/resilience: 6/6
+- Optional performance (local): pass under target budgets
+
+## Feature completeness vs. placeholders
+
+- Segmentation (`/infer`)
+  - Status: API complete; placeholder model used (no transformers runtime).
+  - Ready for: demos, integration tests.
+  - Not yet: real SegFormer inference weights, accuracy benchmarking.
+
+- Pitch Estimation (`/pitch`)
+  - Status: API complete with UK-bounds validation; integration tests in place.
+  - Placeholder: DSM data source uses synthetic values; planar decomposition simplified.
+  - Not yet: Environment Agency LIDAR DSM retrieval, tile caching.
+
+- Quote Generation (`/quote`)
+  - Status: API complete; MCS-style calculations implemented; itemized costs + ROI/payback.
+  - Placeholders: PVGIS irradiance and BEIS/pricing are simulated; address→geocoding not wired (uses placeholder coords in model).
+  - Not yet: real PVGIS v5.2 integration, live pricing, VAT/overheads, geocoding from postcode/address.
+
+- Platform & Ops
+  - Logging/Tracing: Request ID middleware added; basic logging in place.
+  - CI: GitHub Actions for tests and Docker build.
+  - CD: GitHub Actions to Google Cloud Run (env-gated deployments).
+  - Docker: Image builds locally and in CI.
+
+## Known gaps and placeholders (to replace)
+
+- Segmentation model is a placeholder (no transformers runtime or real weights).
+- DSMService returns synthetic values; replace with Environment Agency LIDAR DSM tiles + caching.
+- IrradianceService uses placeholder data; integrate PVGIS v5.2 with retry/backoff and caching.
+- CostService uses static sample costs; connect to BEIS/vendor price feeds; add VAT/overheads/margins.
+- QuoteModel uses placeholder lat/lon for yield; add geocoding from address/postcode.
+- Persistence: no database for quotes; no PDF export; no email pipeline.
+- Security: no authn/authz, coarse CORS, no API keys/rate limiting.
+- Observability: no metrics/tracing dashboards.
+
+## Next steps and improvements
+
+- Replace placeholders with live data/services
+  - PVGIS v5.2 integration + caching; handle rate limits.
+  - Environment Agency LIDAR DSM ingestion + tile cache (e.g., local/Cloud Storage).
+  - Real segmentation model (SegFormer-B0) inference with transformers; evaluate accuracy.
+  - Cost/pricing source (BEIS or supplier feed); include install overheads, scaffolding, margins, VAT.
+  - Geocoding for address→(lat,lon) and postcode validation.
+
+- Productization
+  - Persist quotes (e.g., Postgres) + PDF quote generation + email delivery.
+  - Authentication (API key/JWT), rate limiting, stricter CORS.
+  - Monitoring: structured logs with request_id, error budgets, uptime checks.
+  - Performance hardening and load testing (k6/Gatling); tune Cloud Run min/max instances.
+
+- CI/CD & DevEx
+  - Add status badges, coverage, mypy/flake8 (optional) and nightly perf tests.
+  - Optionally publish/pull image from Google Artifact Registry (private) instead of public GHCR.
+  - Blue/green deploy strategy per environment.
 
 ## Environment Variables
 
