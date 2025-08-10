@@ -10,6 +10,7 @@ import numpy as np
 
 from app.models.segmentation import SegmentationModel
 from app.models.pitch_estimator import PitchEstimator
+from app.models.quote import QuoteModel, PropertyDetails, SegmentationResult, PitchResult, CustomerPreferences
 
 app = FastAPI(
     title="SolarOptima ML Service",
@@ -29,6 +30,7 @@ app.add_middleware(
 # Initialize models
 segmentation_model = SegmentationModel()
 pitch_estimator = PitchEstimator()
+quote_model = QuoteModel()
 
 @app.get("/health")
 async def health_check():
@@ -161,6 +163,121 @@ async def estimate_pitch(request: PitchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pitch estimation failed: {str(e)}")
 
+# Add Pydantic models for quote endpoint
+class PropertyDetailsRequest(BaseModel):
+    address: str = Field(..., min_length=5, description="Property address")
+    postcode: str = Field(..., min_length=5, description="UK postcode")
+    property_type: str = Field(..., description="Property type (semi_detached, detached, terraced, flat, etc.)")
+    occupancy: str = Field(..., description="Occupancy type (family_of_4, couple, single, etc.)")
+
+class SegmentationResultRequest(BaseModel):
+    mask: str = Field(..., description="Base64 encoded segmentation mask")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Segmentation confidence score")
+
+class PitchResultRequest(BaseModel):
+    pitch_degrees: float = Field(..., ge=0, le=90, description="Roof pitch angle in degrees")
+    area_m2: float = Field(..., ge=5, le=200, description="Roof area in square meters")
+    roof_type: str = Field(..., description="Roof type (gabled, hipped, flat, mansard, complex)")
+    orientation: str = Field(..., description="Roof orientation (south_facing, south_east, south_west, east_facing, west_facing, north_facing)")
+
+class CustomerPreferencesRequest(BaseModel):
+    battery_storage: bool = Field(default=False, description="Include battery storage")
+    premium_panels: bool = Field(default=False, description="Use premium panels")
+    financing: str = Field(default="cash_purchase", description="Financing option (cash_purchase, finance, lease)")
+
+class QuoteRequest(BaseModel):
+    property_details: PropertyDetailsRequest
+    segmentation_result: SegmentationResultRequest
+    pitch_result: PitchResultRequest
+    preferences: CustomerPreferencesRequest
+
+@app.post("/quote")
+async def generate_quote(request: QuoteRequest):
+    """
+    Generate complete solar quote from property details, segmentation, and pitch data
+    
+    Args:
+        request: QuoteRequest with all required data
+    
+    Returns:
+        Complete solar quote with system specification, yield analysis, and financial breakdown
+    """
+    try:
+        # Convert request to internal models
+        property_details = PropertyDetails(
+            address=request.property_details.address,
+            postcode=request.property_details.postcode,
+            property_type=request.property_details.property_type,
+            occupancy=request.property_details.occupancy
+        )
+        
+        segmentation_result = SegmentationResult(
+            mask=request.segmentation_result.mask,
+            confidence=request.segmentation_result.confidence
+        )
+        
+        pitch_result = PitchResult(
+            pitch_degrees=request.pitch_result.pitch_degrees,
+            area_m2=request.pitch_result.area_m2,
+            roof_type=request.pitch_result.roof_type,
+            orientation=request.pitch_result.orientation
+        )
+        
+        preferences = CustomerPreferences(
+            battery_storage=request.preferences.battery_storage,
+            premium_panels=request.preferences.premium_panels,
+            financing=request.preferences.financing
+        )
+        
+        # Validate request data
+        validation_errors = quote_model.validate_quote_request(
+            property_details, segmentation_result, pitch_result, preferences
+        )
+        
+        if validation_errors:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Validation errors: {', '.join(validation_errors)}"
+            )
+        
+        # Generate quote
+        quote_response = quote_model.generate_quote(
+            property_details=property_details,
+            segmentation_result=segmentation_result,
+            pitch_result=pitch_result,
+            preferences=preferences
+        )
+        
+        # Convert to dict for JSON response
+        quote_dict = {
+            "quote_id": quote_response.quote_id,
+            "generated_date": quote_response.generated_date,
+            "property_details": {
+                "address": quote_response.property_details.address,
+                "postcode": quote_response.property_details.postcode,
+                "property_type": quote_response.property_details.property_type,
+                "occupancy": quote_response.property_details.occupancy
+            },
+            "system_specification": quote_response.system_specification,
+            "yield_analysis": quote_response.yield_analysis,
+            "financial_analysis": quote_response.financial_analysis,
+            "itemized_breakdown": quote_response.itemized_breakdown,
+            "warranties": quote_response.warranties,
+            "next_steps": quote_response.next_steps,
+            "valid_until": quote_response.valid_until,
+            "mcs_compliant": quote_response.mcs_compliant,
+            "confidence_score": quote_response.confidence_score
+        }
+        
+        return quote_dict
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Quote generation failed: {str(e)}")
+
 @app.get("/")
 async def root():
     """Root endpoint with service information"""
@@ -171,6 +288,7 @@ async def root():
             "health": "/health",
             "infer": "/infer",
             "pitch": "/pitch",
+            "quote": "/quote",
             "docs": "/docs"
         }
     } 
