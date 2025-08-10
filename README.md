@@ -221,6 +221,11 @@ Run specific test file:
 pytest tests/test_infer.py -v
 pytest tests/test_pitch.py -v
 pytest tests/test_quote.py -v
+pytest tests/test_integration.py -v
+pytest tests/test_contract.py -v
+pytest tests/test_resilience.py -v
+# Performance (optional)
+pytest -m runslow tests/test_performance.py -v
 ```
 
 ## Project Structure
@@ -241,7 +246,11 @@ solar-optima-ml/
 ├── tests/
 │   ├── test_infer.py        # Segmentation tests
 │   ├── test_pitch.py        # Pitch estimation tests
-│   └── test_quote.py        # Quote generation tests
+│   ├── test_quote.py        # Quote generation tests
+│   ├── test_integration.py  # End-to-end flow tests
+│   ├── test_contract.py     # OpenAPI contract tests
+│   ├── test_resilience.py   # Failure mode tests
+│   └── test_performance.py  # Performance tests (runslow)
 ├── models/                  # Pre-trained model weights
 ├── Dockerfile              # Container configuration
 ├── requirements.txt        # Python dependencies
@@ -255,7 +264,7 @@ This project follows the task breakdown from `DESIGN.md`:
 - **ML-1**: ✅ Dockerfile + FastAPI skeleton with `/infer` endpoint
 - **ML-2**: ✅ Roof pitch estimator (`/pitch` endpoint)
 - **ML-3**: ✅ Quote generation (`/quote` endpoint)
-- **ML-4**: ⏳ Integration testing
+- **ML-4**: ✅ Integration testing
 - **ML-5**: ⏳ CI/CD pipeline
 
 ## Current Status

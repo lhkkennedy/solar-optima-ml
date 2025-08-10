@@ -11,12 +11,16 @@ import numpy as np
 from app.models.segmentation import SegmentationModel
 from app.models.pitch_estimator import PitchEstimator
 from app.models.quote import QuoteModel, PropertyDetails, SegmentationResult, PitchResult, CustomerPreferences
+from app.middleware.request_id import add_request_id_middleware
 
 app = FastAPI(
     title="SolarOptima ML Service",
     description="ML micro-service for solar panel assessment and quotation",
     version="1.0.0"
 )
+
+# Register request ID middleware
+add_request_id_middleware(app)
 
 # CORS middleware for Next.js frontend
 app.add_middleware(
