@@ -1,4 +1,4 @@
-# ML-6: Production Inference & Elevations (3D Roof Parametrization)
+# ML-6: Procedural Roof Generation (Primary) & Elevations (Required for 3D)
 
 Type: enhancement • Priority: Critical • Depends on: ML-1..5 ✅ • ETA: 5–7 days
 
@@ -9,7 +9,7 @@ Given coordinates and overhead imagery, return an accurate 3D parametrization of
 - Planes with normals, pitch°, aspect°, polygon outlines, and areas (m²)
 - Ridges/edges (plane intersections) with heights
 - Summary (total area, dominant pitches/orientations, height, roof type)
-- Artifacts: GeoJSON (EPSG:4326) and optional glTF/OBJ mesh
+- Artifacts: GeoJSON (EPSG:4326) and glTF/OBJ mesh
 
 ## API
 - POST `/model3d`
@@ -39,25 +39,29 @@ Given coordinates and overhead imagery, return an accurate 3D parametrization of
     ```
 - Backward‐compatible: `/pitch` continues to return summary-only values.
 
-## Pipeline (≤3–5 s end‑to‑end)
-1) Locate + fetch
-   - BBox ~40–80 m square around (lat,lon)
-   - DSM/DTM (EA LIDAR) tiles → cache by bbox (GCS or local)
-   - Optional building footprint (OS/OSM/OpenBuildings) to constrain roof region
-2) Segmentation (GPU)
-   - Model: SegFormer‑B0 (Torch or ONNX)
-   - Output: roof mask (binary/instance); refine with footprint overlap
-3) Elevation fusion
-   - nDSM = DSM − DTM; 3×3 median denoise; vegetation removal by morphology + height threshold
-   - Align mask to DSM grid (affine by bbox)
-4) Planar decomposition
-   - Robust multi‑plane fitting (RANSAC or PEAC/region‑growing in normal space)
-   - Merge planes by angle (<5°) & distance (<0.15 m)
-   - Extract per‑plane polygon (marching squares) and clip to inliers
-   - Edges/ridges = intersections of adjacent planes; classify roof type from plane graph
-5) Outputs + confidence
-   - Confidence f(seg_conf, DSM flags, inlier ratio, plane residuals)
-   - Emit GeoJSON + optional glTF; summary metrics
+## Pipeline (procedural-first, elevation-required)
+1) Locate + fetch imagery; optional building footprint (OSM/OpenBuildings) for crop.
+2) Instance segmentation or client mask (preferred for scalability) to isolate building image.
+3) Building decomposition (PBSR): classify compact building shape family (I/L/T/U/Z within up to 4 parts; topologies T11, T21, T32, T43) and match a regularized configuration via IoU over a compact template set.
+4) Roof ridge detection per part: compute edge map (Canny for V1, or ONNX classifier) and infer roof family (flat/gable/hip/pyramid/half-hip) and ridge configuration maximizing edge support.
+5) Elevation fusion (DSM/DTM) → nDSM; denoise; align footprint/mask; vegetation removal.
+6) Planar decomposition (RANSAC/region‑growing): merge planes; extract polygons; intersect planes; estimate per‑part plane normals.
+7) Snap procedural ridge axes to plane aspects/pitches; sample nDSM along ridges and within parts to assign heights and compute pitch°. Produce full 3D parametrization (ridges_3d, part planes) and assemble artifacts (GeoJSON + glTF).
+
+#### Training small classifiers (RTX 3060 friendly)
+We can replace the V1 deterministic heuristics with small ONNX classifiers:
+
+- Family classifier (PBSR): ResNet18 (input 128×128), predicts {T11,T21,T32,T43}.
+- Roof family classifier: ResNet18 (input 128×128), predicts {flat,gable,hip,pyramid}.
+
+Workflow:
+1) Generate synthetic data (footprints/roofs) with transformations (occlusions, noise, rotations).
+2) Train on GPU (5–20 epochs; seconds to minutes per epoch on 3060).
+3) Export to ONNX; mount under `/models`; set `PROC_ROOF_USE_CLASSIFIER=1`.
+
+Paths:
+- Scripts under `tools/procedural_roof/`: `gen_synth_footprints.py`, `train_family.py`, `export_onnx.py`.
+- Runtime looks for ONNX in `PROC_ROOF_ONNX_DIR`.
 
 ## Accuracy tactics
 - Use building footprint as prior; reject tiny planes; MAD outlier pruning
@@ -75,7 +79,11 @@ Given coordinates and overhead imagery, return an accurate 3D parametrization of
 - `SEG_BACKEND=torch|onnx` (default torch)
 - `SEG_MODEL_PATH=/models/segformer-b0`
 - `DSM_CACHE_DIR=/var/cache/dsm` (ephemeral) or `gs://...` if remote cache
-- `EA_DSM_BASE_URL=...` (tiles index)
+- Elevation (required for 3D):
+  - `EA_WCS_DSM=https://.../wcs` (Environment Agency DSM WCS)
+  - `EA_WCS_DTM=https://.../wcs` (Environment Agency DTM WCS)
+  - `EA_LAYER_DSM=...` (coverage name)
+  - `EA_LAYER_DTM=...` (coverage name)
 - `CORS_ALLOW_ORIGINS=...`
 - Cloud Run deploy flags:
   - `--gpu=type=nvidia-tesla-t4,count=1` (or L4 if available)
@@ -85,8 +93,8 @@ Given coordinates and overhead imagery, return an accurate 3D parametrization of
 
 ## Benchmarks & validation
 - Golden set: 50–100 roofs with LiDAR truth
-- Metrics: plane residual RMSE (m); pitch MAE (°); area MAE (%); edge IoU
-- Targets: P50 ≤2.5 s, P95 ≤5 s; pitch MAE ≤3–5° typical; area MAE ≤5–10%
+- Metrics: plane residual RMSE (m); pitch MAE (°); area MAE (%); ridge completeness/correctness; edge IoU
+- Targets: P50 ≤2.5 s, P95 ≤5 s; pitch MAE ≤3–5°; area MAE ≤5–10%; ridge completeness ≥80%, correctness ≥85%
 
 ## Risks & mitigations
 - DSM gaps → fallback planes with low confidence

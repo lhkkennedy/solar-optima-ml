@@ -32,6 +32,14 @@ ML micro-service for automated solar panel assessment and quotation for UK resid
    - API Documentation: http://localhost:8000/docs
    - Health Check: http://localhost:8000/health
 
+### Environment Variables
+
+- `SEG_BACKEND=torch|onnx`
+- `SEG_MODEL_PATH=/models/segformer-b0`
+- `PROC_ROOF_ENABLE=0|1`: include procedural roof output in `/model3d`
+- `PROC_ROOF_USE_CLASSIFIER=0|1`: use ONNX classifiers for roof family if present
+- `PROC_ROOF_ONNX_DIR=/models`: directory containing ONNX files
+
 ### Docker
 
 1. **Build the image**:
@@ -57,6 +65,15 @@ curl -X POST "http://localhost:8000/infer" \
   -F "file=@aerial_image.png"
 ```
 
+### Procedural + Elevation (3D required)
+
+We reconstruct a vector, parametric roof model (PBSR + ridge detection) and then require DSM/DTM elevation to produce full 3D (heights, pitches):
+
+- Enable procedural (default): `PROC_ROOF_ENABLE=1`
+- Optional ONNX classifiers: `PROC_ROOF_USE_CLASSIFIER=1`, `PROC_ROOF_ONNX_DIR=/models`
+- Elevation for 3D (required): set EA WCS env vars (`EA_WCS_DSM`, `EA_WCS_DTM`, `EA_LAYER_DSM`, `EA_LAYER_DTM`) and `DSM_CACHE_DIR`.
+- `/model3d` includes `procedural_roofs` (footprint, parts, ridges) and returns 3D (ridges_3d, per‑part pitch/aspect) by sampling nDSM and fitting per‑part planes.
+
 **Response**:
 ```json
 {
@@ -65,6 +82,32 @@ curl -X POST "http://localhost:8000/infer" \
   "original_size": [512, 512],
   "mask_size": [256, 256]
 }
+```
+
+## Procedural Roofs + Elevation (3D)
+
+Enable a vector roof model from a single image (inspired by Zhang & Aliaga, EUROGRAPHICS 2022):
+
+- Set env:
+  - `PROC_ROOF_ENABLE=1`
+  - Elevation (required for 3D): `EA_WCS_DSM`, `EA_WCS_DTM`, `EA_LAYER_DSM`, `EA_LAYER_DTM`, `DSM_CACHE_DIR`
+  - optional classifiers: `PROC_ROOF_USE_CLASSIFIER=1`, `PROC_ROOF_ONNX_DIR=/models`
+- Response from `/model3d` will include a `procedural_roofs` key:
+  ```json
+  {
+    "footprint_regularized": [[lon,lat], ...],
+    "parts": [
+      {"rect_bbox": [[lon,lat],...], "roof_family": "gable", "ridges": [[[lon,lat],[lon,lat]]], "confidence": 0.8}
+    ]
+  }
+  ```
+
+Training small classifiers (optional):
+
+```bash
+python tools/procedural_roof/gen_synth_footprints.py --out data/pbsr_masks --num 50000
+python tools/procedural_roof/train_family.py --data data/pbsr_masks --out runs/family_resnet18.pt --epochs 10
+python tools/procedural_roof/export_onnx.py --pt runs/family_resnet18.pt --onnx models/proc_roof_family.onnx
 ```
 
 ### Python Example

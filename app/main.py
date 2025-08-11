@@ -15,6 +15,9 @@ from app.middleware.request_id import add_request_id_middleware
 from app.services.dsm_service import DSMService
 from app.services.plane_fitting import PlaneFitting
 from typing import Optional
+from app.settings import get_settings
+
+SETTINGS = get_settings()
 
 app = FastAPI(
     title="SolarOptima ML Service",
@@ -210,6 +213,113 @@ async def model3d(req: Model3DRequest):
             "artifacts": {"geojson_url": None, "gltf_url": None},
             "bbox": {"epsg27700": list(clip.bbox_27700), "epsg4326": list(clip.bbox_4326)},
         }
+        # Optional: procedural roof reconstruction (feature-flagged)
+        if bool(int(str(int(SETTINGS.__dict__.get("proc_roof_enable", 0))) )):
+            try:
+                # Lightweight per-building: use segmentation mask if provided, else skip
+                from app.services.procedural_roof import PBSRService, RidgeDetectionService, ProceduralRoofSynthesizer
+                pbsr = PBSRService()
+                ridge = RidgeDetectionService()
+                synth = ProceduralRoofSynthesizer()
+                # Derive a single-building mask from seg_mask if present; fallback to whole bbox
+                H, W = ndsm.ndsm.shape
+                if 'mask_arr' in locals() and mask_arr is not None:
+                    bin_mask = (mask_arr > 0.5).astype(np.uint8)
+                else:
+                    bin_mask = np.ones((H, W), dtype=np.uint8)
+
+                match = pbsr.match(bin_mask)
+                ridge_results = []
+                # Create a dummy grayscale from nDSM energy for edge detection
+                nd_norm = ndsm.ndsm
+                if isinstance(nd_norm, np.ndarray):
+                    nd_norm = (255.0 * (nd_norm - np.nanmin(nd_norm)) / (np.nanmax(nd_norm) - np.nanmin(nd_norm) + 1e-6)).astype(np.uint8)
+                else:
+                    nd_norm = np.zeros((H, W), dtype=np.uint8)
+
+                for rect in (match.rects if match else []):
+                    crop = nd_norm[max(0, rect.y):rect.y+rect.h, max(0, rect.x):rect.x+rect.w]
+                    if crop.size == 0:
+                        ridge_results.append(ridge.analyze_part(nd_norm, rect))
+                    else:
+                        ridge_results.append(ridge.analyze_part(nd_norm, rect))
+
+                # pixel to lonlat mapper
+                min_lon, min_lat, max_lon, max_lat = clip.bbox_4326
+                def p2ll(px, py):
+                    lon = min_lon + (max_lon - min_lon) * (px / max(1, W - 1))
+                    lat = min_lat + (max_lat - min_lat) * (py / max(1, H - 1))
+                    return [float(lon), float(lat)]
+
+                # Assemble 2D procedural model first
+                proc_model = synth.assemble(match, ridge_results, p2ll) if match else None
+
+                # Augment with elevation: sample heights along ridges and estimate per-part pitch/aspect
+                if proc_model and isinstance(ndsm.ndsm, np.ndarray):
+                    # compute 3D ridges and add per-part pitch_deg/aspect_deg
+                    parts_aug = []
+                    for rect, rr, part in zip(match.rects if match else [], ridge_results, proc_model.parts):
+                        # Ridge 3D
+                        ridges3d = []
+                        for seg in part.get("ridges", []):
+                            (lon0, lat0), (lon1, lat1) = seg
+                            # map lon/lat back to pixel indices
+                            def ll2p(lon, lat):
+                                x = (lon - min_lon) / (max_lon - min_lon + 1e-12) * (W - 1)
+                                y = (lat - min_lat) / (max_lat - min_lat + 1e-12) * (H - 1)
+                                return int(round(x)), int(round(y))
+                            x0, y0 = ll2p(lon0, lat0)
+                            x1, y1 = ll2p(lon1, lat1)
+                            x0 = max(0, min(W - 1, x0)); x1 = max(0, min(W - 1, x1))
+                            y0 = max(0, min(H - 1, y0)); y1 = max(0, min(H - 1, y1))
+                            z0 = float(ndsm.ndsm[y0, x0])
+                            z1 = float(ndsm.ndsm[y1, x1])
+                            ridges3d.append([[lon0, lat0, z0], [lon1, lat1, z1]])
+
+                        # Plane fit on nDSM within rect to get pitch/aspect
+                        window = ndsm.ndsm[max(0, rect.y):rect.y+rect.h, max(0, rect.x):rect.x+rect.w]
+                        pitch_deg = None; aspect_deg = None
+                        if window.size > 0:
+                            yy, xx = np.mgrid[0:window.shape[0], 0:window.shape[1]]
+                            z = window.astype(np.float32)
+                            # mask zero (outside) values to reduce bias
+                            m = z > 0
+                            if m.sum() > 50:
+                                X = np.column_stack([xx[m].ravel(), yy[m].ravel(), np.ones(int(m.sum()))])
+                                yv = z[m].ravel()
+                                # least squares fit z = a*x + b*y + c
+                                try:
+                                    coeffs, *_ = np.linalg.lstsq(X, yv, rcond=None)
+                                    a, b = float(coeffs[0]), float(coeffs[1])
+                                    # normal ~ ( -a, -b, 1 )
+                                    nx, ny, nz = -a, -b, 1.0
+                                    norm = (nx**2 + ny**2 + nz**2) ** 0.5
+                                    nx /= norm; ny /= norm; nz /= norm
+                                    pitch_deg = float(np.degrees(np.arccos(abs(nz))))
+                                    # aspect: downslope direction
+                                    aspect_rad = float(np.arctan2(nx, ny))
+                                    aspect_deg = (np.degrees(aspect_rad) + 360.0) % 360.0
+                                except Exception:
+                                    pass
+
+                        part_aug = dict(part)
+                        part_aug["ridges_3d"] = ridges3d
+                        if pitch_deg is not None and aspect_deg is not None:
+                            part_aug["pitch_deg"] = round(pitch_deg, 1)
+                            part_aug["aspect_deg"] = round(aspect_deg, 1)
+                        parts_aug.append(part_aug)
+                    proc_model.parts = parts_aug
+
+                if proc_model:
+                    response["procedural_roofs"] = [{
+                        "footprint_regularized": proc_model.footprint_regularized,
+                        "parts": proc_model.parts,
+                        "metrics": proc_model.metrics,
+                        "artifacts": proc_model.artifacts,
+                    }]
+            except Exception:
+                # Do not fail core endpoint if procedural step errors
+                pass
         return response
     except HTTPException:
         raise
