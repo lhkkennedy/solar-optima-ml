@@ -22,6 +22,7 @@ from app.services.elevation_augment import augment_procedural_model
 from app.services.artifacts.geojson_writer import write_geojson
 from app.services.artifacts.gltf_writer import write_gltf
 from app.services.artifacts.storage import ArtifactStorage
+import os
 
 SETTINGS = get_settings()
 
@@ -34,12 +35,26 @@ app = FastAPI(
 # Register request ID middleware
 add_request_id_middleware(app)
 
-# CORS middleware for Next.js frontend
+# CORS middleware (configurable via CORS_ALLOW_ORIGINS)
+# Accept comma-separated list of origins, e.g.:
+#   CORS_ALLOW_ORIGINS=http://localhost:8081,http://127.0.0.1:8081
+cors_env = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
+if cors_env:
+    allow_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
+else:
+    # Sensible defaults for local dev and production
+    allow_origins = [
+        "http://localhost:3000",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "https://solaroptima.com",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://solaroptima.com"],
+    allow_origins=allow_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],  # includes OPTIONS
     allow_headers=["*"],
 )
 
