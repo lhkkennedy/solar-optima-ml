@@ -14,6 +14,7 @@ from app.models.quote import QuoteModel, PropertyDetails, SegmentationResult, Pi
 from app.middleware.request_id import add_request_id_middleware
 from app.services.dsm_service import DSMService
 from app.services.plane_fitting import PlaneFitting
+from typing import Optional
 
 app = FastAPI(
     title="SolarOptima ML Service",
@@ -124,12 +125,13 @@ async def model3d(req: Model3DRequest):
         # Optional segmentation masking from client image/url
         try:
             mask_arr = None
+            seg_conf: Optional[float] = None
             if req.image_base64:
                 img_bytes = base64.b64decode(req.image_base64)
                 img = Image.open(io.BytesIO(img_bytes))
                 if img.mode != "RGB":
                     img = img.convert("RGB")
-                seg_mask, _ = segmentation_model.predict(img)
+                seg_mask, seg_conf = segmentation_model.predict(img)
                 mimg = Image.fromarray((seg_mask * 255).astype(np.uint8))
                 mimg = mimg.resize((ndsm.ndsm.shape[1], ndsm.ndsm.shape[0]), Image.NEAREST)
                 mask_arr = (np.array(mimg) > 127).astype(np.float32)
@@ -140,12 +142,35 @@ async def model3d(req: Model3DRequest):
                 img = Image.open(io.BytesIO(r.content))
                 if img.mode != "RGB":
                     img = img.convert("RGB")
-                seg_mask, _ = segmentation_model.predict(img)
+                seg_mask, seg_conf = segmentation_model.predict(img)
                 mimg = Image.fromarray((seg_mask * 255).astype(np.uint8))
                 mimg = mimg.resize((ndsm.ndsm.shape[1], ndsm.ndsm.shape[0]), Image.NEAREST)
                 mask_arr = (np.array(mimg) > 127).astype(np.float32)
+            # Footprint mask (optional)
+            fp_mask = None
+            if clip.footprint and isinstance(clip.footprint.geojson, dict):
+                try:
+                    coords = clip.footprint.geojson.get("geometry", {}).get("coordinates", [])
+                    if coords:
+                        # very lightweight rasterization: use bbox of footprint
+                        lon_vals = [c[0] for c in coords[0]]
+                        lat_vals = [c[1] for c in coords[0]]
+                        min_lon_fp, max_lon_fp = min(lon_vals), max(lon_vals)
+                        min_lat_fp, max_lat_fp = min(lat_vals), max(lat_vals)
+                        H, W = ndsm.ndsm.shape
+                        min_lon, min_lat, max_lon, max_lat = clip.bbox_4326
+                        xs = np.linspace(min_lon, max_lon, W)
+                        ys = np.linspace(min_lat, max_lat, H)
+                        within_x = (xs >= min_lon_fp) & (xs <= max_lon_fp)
+                        within_y = (ys >= min_lat_fp) & (ys <= max_lat_fp)
+                        fp_mask = np.outer(within_y.astype(np.float32), within_x.astype(np.float32))
+                except Exception:
+                    fp_mask = None
+            # Apply masks if present
             if mask_arr is not None:
                 ndsm.ndsm *= mask_arr
+            if fp_mask is not None:
+                ndsm.ndsm *= fp_mask
         except Exception:
             pass
         # Fit planes over nDSM
@@ -153,6 +178,16 @@ async def model3d(req: Model3DRequest):
             planes, edges = plane_fitting.fit_from_ndsm(clip, ndsm)
         except Exception:
             planes, edges = plane_fitting.fit(clip)
+        # Confidence heuristic
+        base_conf = 0.65
+        if mask_arr is not None and seg_conf is not None:
+            base_conf = max(base_conf, 0.6 + 0.4 * float(seg_conf))
+        if clip.footprint is not None:
+            base_conf = min(1.0, base_conf + 0.05)
+        # Elevation energy check
+        energy = float(np.mean(np.abs(ndsm.ndsm))) if isinstance(ndsm.ndsm, np.ndarray) else 0.0
+        if energy < 0.1:
+            base_conf = min(base_conf, 0.7)
         response = {
             "planes": [
                 {
@@ -171,7 +206,7 @@ async def model3d(req: Model3DRequest):
                 "max_height_m": max(max(v[2] for v in p.polygon) for p in planes),
                 "roof_type": "gabled",
             },
-            "confidence": 0.7,
+            "confidence": round(base_conf, 2),
             "artifacts": {"geojson_url": None, "gltf_url": None},
             "bbox": {"epsg27700": list(clip.bbox_27700), "epsg4326": list(clip.bbox_4326)},
         }
