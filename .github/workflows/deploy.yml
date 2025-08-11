@@ -40,6 +40,16 @@ jobs:
           IMAGE="${{ steps.img.outputs.image }}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
+
+      - name: Debug image in GAR (dev)
+        run: |
+          set -euo pipefail
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          echo "IMAGE=${{ steps.img.outputs.image }}"
+          echo "gcloud auth list:" && gcloud auth list
+          echo "gcloud config list:" && gcloud config list --format 'text'
+          echo "List tags in GAR repo:"
+          gcloud artifacts docker tags list "${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_DEV }}/ml/solaroptima-ml" --format='table(tag,digest)'
     outputs:
       image: ${{ steps.img.outputs.image }}
 
@@ -59,8 +69,14 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID_DEV }}
       - name: Deploy to Cloud Run (dev)
         run: |
+          set -euo pipefail
+          IMAGE="${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_DEV }}/ml/solaroptima-ml:${GITHUB_SHA}"
+          echo "REGION=${{ secrets.GCP_REGION_DEV }} PROJECT=${{ secrets.GCP_PROJECT_ID_DEV }}"
+          echo "Deploying image: $IMAGE"
+          echo "Verifying tag exists in GAR..."
+          gcloud artifacts docker tags list "${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_DEV }}/ml/solaroptima-ml" --format='value(tag)' | grep -Fx "${GITHUB_SHA}" || { echo "Tag $GITHUB_SHA not found in GAR"; exit 1; }
           gcloud run deploy solaroptima-ml-dev \
-            --image "${{ needs.build.outputs.image }}" \
+            --image "$IMAGE" \
             --region "${{ secrets.GCP_REGION_DEV }}" \
             --allow-unauthenticated \
             --cpu=2 --memory=4Gi --concurrency=2 \
