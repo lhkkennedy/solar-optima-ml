@@ -91,6 +91,9 @@ jobs:
             --image="$GAR_IMAGE" \
             --platform=managed \
             --allow-unauthenticated \
+            --gpu=type=nvidia-tesla-t4,count=1 \
+            --add-volume name=models,type=cloud-storage,bucket=${{ secrets.GCS_MODELS_BUCKET }} \
+            --add-volume-mount volume=models,mount-path=/models,read-only \
             --min-instances=0 \
             --max-instances=3 \
             --set-env-vars LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},DSM_CACHE_ENABLED=${{ secrets.DSM_CACHE_ENABLED || 'true' }},USE_PLACEHOLDER_PVGIS=${{ secrets.USE_PLACEHOLDER_PVGIS || 'true' }},USE_PLACEHOLDER_BEIS=${{ secrets.USE_PLACEHOLDER_BEIS || 'true' }}
@@ -118,6 +121,9 @@ jobs:
             --image="$GAR_IMAGE" \
             --platform=managed \
             --allow-unauthenticated \
+            --gpu=type=nvidia-tesla-t4,count=1 \
+            --add-volume name=models,type=cloud-storage,bucket=${{ secrets.GCS_MODELS_BUCKET }} \
+            --add-volume-mount volume=models,mount-path=/models,read-only \
             --min-instances=0 \
             --max-instances=3 \
             --set-env-vars LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},DSM_CACHE_ENABLED=${{ secrets.DSM_CACHE_ENABLED || 'true' }},USE_PLACEHOLDER_PVGIS=${{ secrets.USE_PLACEHOLDER_PVGIS || 'true' }},USE_PLACEHOLDER_BEIS=${{ secrets.USE_PLACEHOLDER_BEIS || 'true' }}
@@ -145,6 +151,9 @@ jobs:
             --image="$GAR_IMAGE" \
             --platform=managed \
             --allow-unauthenticated \
+            --gpu=type=nvidia-tesla-t4,count=1 \
+            --add-volume name=models,type=cloud-storage,bucket=${{ secrets.GCS_MODELS_BUCKET }} \
+            --add-volume-mount volume=models,mount-path=/models,read-only \
             --min-instances=0 \
             --max-instances=3 \
             --set-env-vars LOG_LEVEL=${{ secrets.LOG_LEVEL || 'INFO' }},DSM_CACHE_ENABLED=${{ secrets.DSM_CACHE_ENABLED || 'true' }},USE_PLACEHOLDER_PVGIS=${{ secrets.USE_PLACEHOLDER_PVGIS || 'true' }},USE_PLACEHOLDER_BEIS=${{ secrets.USE_PLACEHOLDER_BEIS || 'true' }}

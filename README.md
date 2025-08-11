@@ -350,6 +350,15 @@ MAX_IMAGE_SIZE=1024
 DSM_CACHE_ENABLED=true
 ```
 
+### Segmentation Backend (ML‑6)
+- Configure via env:
+  - `SEG_BACKEND`: `torch` or `onnx` (default `torch`)
+  - `SEG_MODEL_PATH`: path to model (e.g., `/models/segformer-b0.onnx` mounted from GCS)
+- Cloud Run GPU (example flags already in CD):
+  - `--gpu=type=nvidia-tesla-t4,count=1`
+  - `--add-volume name=models,type=cloud-storage,bucket=$GCS_MODELS_BUCKET`
+  - `--add-volume-mount volume=models,mount-path=/models,read-only`
+
 ## ML-6 (EA LiDAR) usage notes
 
 Start with on-demand WCS (no mirror):
