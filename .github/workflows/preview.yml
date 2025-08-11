@@ -75,16 +75,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const pr = Number(core.getInput('pr_number'))
-            const url = `${{ steps.tagurl.outputs.url }}`
-            const body = `Preview deployed for PR #${pr}\n\nTag: \
-\`${{ steps.vars.outputs.pr_tag }}\`\n\nURL: ${url}`
+            const pr = Number('${{ inputs.pr_number }}');
+            const url = '${{ steps.tagurl.outputs.url }}';
+            const tag = '${{ steps.vars.outputs.pr_tag }}';
+            const body = `Preview deployed for PR #${pr}\n\nTag: \`${tag}\`\n\nURL: ${url}`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr,
               body
-            })
+            });
 
       - name: Run smoke tests
         id: smoke
