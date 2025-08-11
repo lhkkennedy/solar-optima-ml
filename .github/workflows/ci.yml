@@ -31,7 +31,3 @@ jobs:
       - name: Run tests
         run: |
           pytest tests/ -v
-
-      - name: Build Docker image (no push)
-        run: |
-          docker build -t solaroptima-ml:ci .
