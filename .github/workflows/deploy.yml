@@ -78,7 +78,7 @@ jobs:
             --cpu=2 --memory=4Gi --concurrency=2 \
             --set-env-vars "PROC_ROOF_ENABLE=1,PROC_ROOF_MAX_BUILDINGS=5,PROC_ROOF_USE_CLASSIFIER=1,PROC_ROOF_ONNX_DIR=/models,EA_WCS_DSM=${{ secrets.EA_WCS_DSM }},EA_WCS_DTM=${{ secrets.EA_WCS_DTM }},EA_LAYER_DSM=${{ secrets.EA_LAYER_DSM }},EA_LAYER_DTM=${{ secrets.EA_LAYER_DTM }},DSM_CACHE_DIR=/var/cache/dsm,ARTIFACT_DIR=/var/artifacts,GCS_ARTIFACTS_BUCKET=${{ secrets.GCS_ARTIFACTS_BUCKET_DEV }},CORS_ALLOW_ORIGINS=${{ secrets.CORS_ALLOW_ORIGINS || '*' }}" \
             --add-volume name=models,type=cloud-storage,bucket="${{ secrets.GCS_MODELS_BUCKET_DEV }}" \
-            --add-volume-mount volume=models,mount-path=/models,read-only
+            --add-volume-mount volume=models,mount-path=/models,read-only=true
 
   deploy-staging:
     if: github.event_name == 'workflow_dispatch' && inputs.target == 'staging'
@@ -108,6 +108,6 @@ jobs:
             --cpu=2 --memory=4Gi --concurrency=2 \
             --set-env-vars "PROC_ROOF_ENABLE=1,PROC_ROOF_MAX_BUILDINGS=5,PROC_ROOF_USE_CLASSIFIER=1,PROC_ROOF_ONNX_DIR=/models,EA_WCS_DSM=${{ secrets.EA_WCS_DSM }},EA_WCS_DTM=${{ secrets.EA_WCS_DTM }},EA_LAYER_DSM=${{ secrets.EA_LAYER_DSM }},EA_LAYER_DTM=${{ secrets.EA_LAYER_DTM }},DSM_CACHE_DIR=/var/cache/dsm,ARTIFACT_DIR=/var/artifacts,GCS_ARTIFACTS_BUCKET=${{ secrets.GCS_ARTIFACTS_BUCKET_STAGING }},CORS_ALLOW_ORIGINS=${{ secrets.CORS_ALLOW_ORIGINS || '*' }}" \
             --add-volume name=models,type=cloud-storage,bucket="${{ secrets.GCS_MODELS_BUCKET_STAGING }}" \
-            --add-volume-mount volume=models,mount-path=/models,read-only
+            --add-volume-mount volume=models,mount-path=/models,read-only=true
 
 
