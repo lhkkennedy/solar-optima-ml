@@ -7,7 +7,8 @@ import numpy as np
 import cv2
 
 from .pbsr import Rect
-from .classifiers import OnnxClassifier, ClassifierConfig
+import os
+from .classifiers import OnnxClassifier, ClassifierConfig, load_proc_roof_classifiers
 
 
 @dataclass
@@ -26,16 +27,22 @@ class RidgeDetectionService:
     ONNX classifiers are introduced.
     """
 
-    def __init__(self, canny_low: int = 50, canny_high: int = 150, support_tol: float = 0.05, onnx_path: str | None = None):
+    def __init__(self, canny_low: int = 50, canny_high: int = 150, support_tol: float = 0.05, onnx_path: str | None = None, classifier: OnnxClassifier | None = None):
         self.canny_low = canny_low
         self.canny_high = canny_high
         self.support_tol = support_tol
-        self.clf = None
-        if onnx_path:
+        self.clf = classifier
+        if self.clf is None and onnx_path:
             try:
                 self.clf = OnnxClassifier(ClassifierConfig(onnx_path=onnx_path))
             except Exception:
                 self.clf = None
+        # Env-based auto-load
+        if self.clf is None:
+            use = str(os.getenv("PROC_ROOF_USE_CLASSIFIER", "0")).strip() in {"1", "true", "True"}
+            if use:
+                _, roof = load_proc_roof_classifiers()
+                self.clf = roof
 
     def _edge_map(self, img_gray: np.ndarray) -> np.ndarray:
         img_blur = cv2.GaussianBlur(img_gray, (3, 3), 0)

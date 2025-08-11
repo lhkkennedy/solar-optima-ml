@@ -1,8 +1,14 @@
 import os
-from typing import Tuple
+from typing import Tuple, Any
 
-import torch
-import torch.nn.functional as F
+try:
+    import torch  # type: ignore
+    import torch.nn.functional as F  # type: ignore
+    _HAS_TORCH = True
+except Exception:
+    torch = None  # type: ignore
+    F = None  # type: ignore
+    _HAS_TORCH = False
 from PIL import Image
 import numpy as np
 # Optional backends
@@ -22,8 +28,14 @@ class SegmentationModel:
     """
 
     def __init__(self, model_path: str | None = None):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if _HAS_TORCH:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # type: ignore[attr-defined]
+        else:
+            self.device = None
         self.backend = os.getenv("SEG_BACKEND", "torch").lower()
+        if self.backend == "torch" and not _HAS_TORCH:
+            # Fall back when torch is unavailable
+            self.backend = "placeholder"
         self.model_path = model_path or os.getenv("SEG_MODEL_PATH")
         self.model = None
         self.session = None  # ONNX session
@@ -37,7 +49,7 @@ class SegmentationModel:
                 self.session = ort.InferenceSession(model_path, providers=["CUDAExecutionProvider", "CPUExecutionProvider"])  # type: ignore
                 print(f"Loaded ONNX model from {model_path}")
                 return
-            if self.backend == "torch" and model_path and os.path.exists(model_path):
+            if self.backend == "torch" and _HAS_TORCH and model_path and os.path.exists(model_path):
                 # Stub: wire actual SegFormer loading here when weights are available
                 print("Torch backend selected but model loading is not implemented; falling back to placeholder")
                 self.model = None
@@ -105,9 +117,11 @@ class SegmentationModel:
         mask = np.clip(mask + noise, 0, 1).astype(np.float32)
         return mask
 
-    def preprocess_image(self, image: Image.Image) -> torch.Tensor:
+    def preprocess_image(self, image: Image.Image) -> Any:
+        if not _HAS_TORCH:
+            return np.transpose(np.array(image.resize(self.input_size)).astype(np.float32) / 255.0, (2, 0, 1))[None, ...]
         img = image.resize(self.input_size)
         arr = np.array(img)
-        tensor = torch.from_numpy(arr).float() / 255.0
+        tensor = torch.from_numpy(arr).float() / 255.0  # type: ignore[attr-defined]
         tensor = tensor.permute(2, 0, 1).unsqueeze(0)
-        return tensor 
+        return tensor

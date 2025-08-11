@@ -32,13 +32,16 @@ ML micro-service for automated solar panel assessment and quotation for UK resid
    - API Documentation: http://localhost:8000/docs
    - Health Check: http://localhost:8000/health
 
-### Environment Variables
+### Environment Variables (key)
 
 - `SEG_BACKEND=torch|onnx`
 - `SEG_MODEL_PATH=/models/segformer-b0`
 - `PROC_ROOF_ENABLE=0|1`: include procedural roof output in `/model3d`
 - `PROC_ROOF_USE_CLASSIFIER=0|1`: use ONNX classifiers for roof family if present
 - `PROC_ROOF_ONNX_DIR=/models`: directory containing ONNX files
+ - `EA_WCS_DSM`, `EA_WCS_DTM`, `EA_LAYER_DSM`, `EA_LAYER_DTM`, `DSM_CACHE_DIR`: elevation config
+ - `ARTIFACT_DIR`, `ARTIFACT_BASE_URL`, `GCS_ARTIFACTS_BUCKET`: artifact storage
+ - `PORT`: port to bind (Cloud Run sets this automatically)
 
 ### Docker
 
@@ -49,7 +52,9 @@ ML micro-service for automated solar panel assessment and quotation for UK resid
 
 2. **Run the container**:
    ```bash
-   docker run -p 8000:8000 solaroptima-ml
+   # Locally
+   docker run -e PORT=8000 -p 8000:8000 solaroptima-ml
+   # On Cloud Run, the service will listen on $PORT automatically
    ```
 
 ## API Usage

@@ -18,6 +18,14 @@ iterate. When feature-flagged off, the package is idle and has no side-effects.
 
 from .pbsr import PBSRService, BuildingFamilyMatch  # lightweight
 from .ridge_detection import RidgeDetectionService, RoofFamilyResult  # lightweight
+from .pipeline import ProceduralPipeline, ProceduralPipelineConfig
 
-__all__ = ["PBSRService", "BuildingFamilyMatch", "RidgeDetectionService", "RoofFamilyResult"]
+__all__ = [
+    "PBSRService",
+    "BuildingFamilyMatch",
+    "RidgeDetectionService",
+    "RoofFamilyResult",
+    "ProceduralPipeline",
+    "ProceduralPipelineConfig",
+]
 
