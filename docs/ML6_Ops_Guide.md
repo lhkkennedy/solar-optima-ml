@@ -1,34 +1,5 @@
 # ML‑6 Ops Guide
 
-## Suggested Git commit message
-
-```text
-ML-6: Implement submodules 1–12, artifacts, API, validation, and deploy workflow
-
-Code
-- Submodule 1: Add app/services/instance_service.py (Mask R-CNN scaffold) + exports
-- Submodule 2: Add app/services/procedural_roof/pipeline.py + exports
-- Submodule 3: Add app/services/elevation_augment.py (fit_part_plane, sample_ridge_z, augment)
-- Submodule 4: Add app/services/artifacts/geojson_writer.py (FeatureCollection)
-- Submodule 5: Add app/services/artifacts/gltf_writer.py (with pygltflib fallback)
-- Submodule 6: Add app/services/artifacts/storage.py (local/GCS URLs)
-- Submodule 7: Integrate /model3d pipeline in app/main.py (instances→procedural→elevation→artifacts)
-- Submodule 8: Add classifier wiring (load_proc_roof_classifiers) + ridge detection auto-load
-- Submodule 9: Add tools/validation/validate_ml6.py (pitch/area/ridge/IoU)
-- Submodule 10: Add tests: instances, procedural_elevation, artifacts, model3d_multibuilding
-- Submodules 11–12: Dockerfile binds $PORT; README env/Docker notes
-- Robust fallbacks for missing torch/torchvision and pygltflib
-
-Infra
-- Add .github/workflows/deploy.yml (tests + build + deploy to dev, manual staging)
-
-Deps
-- requirements.txt: add pygltflib
-
-Result
-- All tests green locally (65 passed, 1 skipped)
-```
-
 ## Ops checklist
 
 - **Environments and services**

@@ -44,7 +44,7 @@ This document lists concrete sub-modules to complete ML-6 per the spec (procedur
 ## 5) Artifacts: glTF Writer
 - File: `app/services/artifacts/gltf_writer.py`
 - Purpose: Produce simple 3D mesh (extruded parts with pitched faces) and ridge lines.
-- Library: `pygltflib` (or minimal writer).
+- Library: `pygltflib` (or minimal writer). Falls back to placeholder `.glb` when library is unavailable.
 - Output: `.glb` file; return via storage layer as URL.
 - Tests: generate minimal scene; ensure glTF loads (basic sanity).
 
@@ -99,6 +99,7 @@ This document lists concrete sub-modules to complete ML-6 per the spec (procedur
 - Instances: `MASKRCNN_SCORE_THR=0.5`, `MASKRCNN_MASK_THR=0.5`
 - Elevation (required for 3D): `EA_WCS_DSM`, `EA_WCS_DTM`, `EA_LAYER_DSM`, `EA_LAYER_DTM`, `DSM_CACHE_DIR`
 - Artifacts: `ARTIFACT_DIR`, `ARTIFACT_BASE_URL`, `GCS_ARTIFACTS_BUCKET`
+- Server: `PORT` (Cloud Run sets this; Dockerfile respects `$PORT`)
 
 ## 12) Delivery Order
 1. Instance service + K-limit

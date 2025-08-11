@@ -90,6 +90,7 @@ Paths:
   - `--add-volume name=models,type=cloud-storage,bucket=$GCS_MODELS_BUCKET`
   - `--add-volume-mount volume=models,mount-path=/models,read-only`
   - `--concurrency=2 --cpu=2 --memory=4Gi` (tune after tests)
+  - App binds to `$PORT`; Cloud Run sets this automatically
 
 ## Benchmarks & validation
 - Golden set: 50–100 roofs with LiDAR truth
@@ -123,11 +124,12 @@ Code
 
 Container/Deploy
 - Dockerfile
-  - Ensure app listens on `$PORT` (default 8080) instead of fixed 8000
+  - App now listens on `$PORT` (default 8080) instead of fixed 8000
   - Keep models out of the image; mount `/models` via GCS volume
-- GitHub Actions CD (`.github/workflows/cd.yml`)
+- GitHub Actions CD (`.github/workflows/deploy.yml`)
+  - Tests + build + deploy to dev on branch `dev`, manual staging via workflow dispatch
   - Add `--gpu` and `--add-volume*` flags
-  - New secret per env: `GCS_MODELS_BUCKET`
+  - Secrets per env: `GCP_PROJECT_ID_*`, `GCP_REGION_*`, `GCP_SA_KEY_*`, `GCS_MODELS_BUCKET_*`, `GCS_ARTIFACTS_BUCKET_*`
 
 Data & Caching
 - Supabase (optional now; formalized in ML‑8)
