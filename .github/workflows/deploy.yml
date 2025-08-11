@@ -27,18 +27,21 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID_DEV }}
+      - name: Compute image name
+        id: img
+        run: |
+          echo "image=${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_DEV }}/ml/solaroptima-ml:${GITHUB_SHA}" >> $GITHUB_OUTPUT
       - name: Configure Docker for Artifact Registry
         run: |
           GAR_HOST="${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev"
           gcloud auth configure-docker "$GAR_HOST" -q
       - name: Build and push image (Docker → Artifact Registry)
         run: |
-          GAR_HOST="${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev"
-          IMAGE="$GAR_HOST/${{ secrets.GCP_PROJECT_ID_DEV }}/ml/solaroptima-ml:${{ github.sha }}"
+          IMAGE="${{ steps.img.outputs.image }}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
     outputs:
-      image: ${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_DEV }}/ml/solaroptima-ml:${{ github.sha }}
+      image: ${{ steps.img.outputs.image }}
 
   deploy-dev:
     if: github.event_name == 'push'
