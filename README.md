@@ -350,6 +350,18 @@ MAX_IMAGE_SIZE=1024
 DSM_CACHE_ENABLED=true
 ```
 
+## ML-6 (EA LiDAR) usage notes
+
+Start with on-demand WCS (no mirror):
+- Set (optional) environment variables:
+  - `EA_WCS_DSM` / `EA_WCS_DTM` (defaults point to EA 1 m composite WCS)
+  - `EA_LAYER_DSM` / `EA_LAYER_DTM` (defaults: `lidar-composite-dsm-1m` / `lidar-composite-dtm-1m`)
+- Ensure `DSM_CACHE_DIR` exists (defaults to `/var/cache/dsm`); derived nDSM windows are cached there as `.npy` files.
+
+Later, when you add a JSON tile index or mirror to GCS:
+- Provide `LIDAR_INDEX_JSON` (path to a JSON list of tile records with `bbox_27700`, `res_m`, `dsm_url`, `dtm_url`).
+- The service will prefer the mirror/index tiles; WCS becomes a fallback only.
+
 ## Performance
 
 - **Segmentation Time**: <1 second for 256×256 images

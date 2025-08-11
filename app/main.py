@@ -12,6 +12,8 @@ from app.models.segmentation import SegmentationModel
 from app.models.pitch_estimator import PitchEstimator
 from app.models.quote import QuoteModel, PropertyDetails, SegmentationResult, PitchResult, CustomerPreferences
 from app.middleware.request_id import add_request_id_middleware
+from app.services.dsm_service import DSMService
+from app.services.plane_fitting import PlaneFitting
 
 app = FastAPI(
     title="SolarOptima ML Service",
@@ -35,6 +37,8 @@ app.add_middleware(
 segmentation_model = SegmentationModel()
 pitch_estimator = PitchEstimator()
 quote_model = QuoteModel()
+plane_fitting = PlaneFitting()
+ml6_dsm = DSMService()
 
 @app.get("/health")
 async def health_check():
@@ -94,10 +98,90 @@ async def infer_segmentation(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Segmentation failed: {str(e)}")
 
-# Add new Pydantic models for pitch endpoint
+# === ML-6: /model3d (scaffold using step-1 and placeholder plane fitting) ===
 class Coordinates(BaseModel):
     latitude: float = Field(..., ge=-90, le=90, description="Latitude coordinate")
     longitude: float = Field(..., ge=-180, le=180, description="Longitude coordinate")
+
+class Model3DRequest(BaseModel):
+    coordinates: Coordinates  # uses existing Coordinates model above
+    bbox_m: float = Field(60, ge=40, le=120)
+    image_base64: str | None = None
+    image_url: str | None = None
+    provider_hint: str | None = None
+    return_mesh: bool = False
+
+@app.post("/model3d")
+async def model3d(req: Model3DRequest):
+    try:
+        lat = req.coordinates.latitude
+        lon = req.coordinates.longitude
+        clip = ml6_dsm.locate_and_fetch(lat, lon, req.bbox_m)
+        if not clip:
+            raise HTTPException(status_code=400, detail="Coordinates must be within UK bounds or DSM unavailable")
+        # Elevation fusion (nDSM) prior to plane fitting
+        ndsm = ml6_dsm.fuse_elevation(clip)
+        # Optional segmentation masking from client image/url
+        try:
+            mask_arr = None
+            if req.image_base64:
+                img_bytes = base64.b64decode(req.image_base64)
+                img = Image.open(io.BytesIO(img_bytes))
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                seg_mask, _ = segmentation_model.predict(img)
+                mimg = Image.fromarray((seg_mask * 255).astype(np.uint8))
+                mimg = mimg.resize((ndsm.ndsm.shape[1], ndsm.ndsm.shape[0]), Image.NEAREST)
+                mask_arr = (np.array(mimg) > 127).astype(np.float32)
+            elif req.image_url:
+                import requests as _requests
+                r = _requests.get(req.image_url, timeout=10)
+                r.raise_for_status()
+                img = Image.open(io.BytesIO(r.content))
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                seg_mask, _ = segmentation_model.predict(img)
+                mimg = Image.fromarray((seg_mask * 255).astype(np.uint8))
+                mimg = mimg.resize((ndsm.ndsm.shape[1], ndsm.ndsm.shape[0]), Image.NEAREST)
+                mask_arr = (np.array(mimg) > 127).astype(np.float32)
+            if mask_arr is not None:
+                ndsm.ndsm *= mask_arr
+        except Exception:
+            pass
+        # Fit planes over nDSM
+        try:
+            planes, edges = plane_fitting.fit_from_ndsm(clip, ndsm)
+        except Exception:
+            planes, edges = plane_fitting.fit(clip)
+        response = {
+            "planes": [
+                {
+                    "id": p.id,
+                    "normal": list(p.normal),
+                    "pitch_deg": p.pitch_deg,
+                    "aspect_deg": p.aspect_deg,
+                    "polygon": [[lon, lat, h] for (lon, lat, h) in p.polygon],
+                    "area_m2": p.area_m2,
+                }
+                for p in planes
+            ],
+            "edges": [{"a": list(e.a), "b": list(e.b)} for e in edges],
+            "summary": {
+                "area_m2": sum(p.area_m2 for p in planes),
+                "max_height_m": max(max(v[2] for v in p.polygon) for p in planes),
+                "roof_type": "gabled",
+            },
+            "confidence": 0.7,
+            "artifacts": {"geojson_url": None, "gltf_url": None},
+            "bbox": {"epsg27700": list(clip.bbox_27700), "epsg4326": list(clip.bbox_4326)},
+        }
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"model3d failed: {str(e)}")
+
+# Add new Pydantic models for pitch endpoint
 
 class PitchRequest(BaseModel):
     coordinates: Coordinates
@@ -291,6 +375,7 @@ async def root():
         "endpoints": {
             "health": "/health",
             "infer": "/infer",
+            "model3d": "/model3d",
             "pitch": "/pitch",
             "quote": "/quote",
             "docs": "/docs"
