@@ -1,0 +1,105 @@
+name: deploy
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Environment to deploy"
+        required: true
+        type: choice
+        options: [staging]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        run: pytest -q
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Auth to Google Cloud (dev)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_DEV }}
+      - name: Setup gcloud (dev)
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID_DEV }}
+      - name: Build image (Cloud Build)
+        run: |
+          gcloud builds submit \
+            --tag "${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_DEV }}/ml/solaroptima-ml:${{ github.sha }}"
+    outputs:
+      image: ${{ secrets.GCP_REGION_DEV }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_DEV }}/ml/solaroptima-ml:${{ github.sha }}
+
+  deploy-dev:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Auth to Google Cloud (dev)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_DEV }}
+      - name: Setup gcloud (dev)
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID_DEV }}
+      - name: Deploy to Cloud Run (dev)
+        run: |
+          gcloud run deploy solaroptima-ml-dev \
+            --image "${{ needs.build.outputs.image }}" \
+            --region "${{ secrets.GCP_REGION_DEV }}" \
+            --allow-unauthenticated \
+            --cpu=2 --memory=4Gi --concurrency=2 \
+            --set-env-vars "PROC_ROOF_ENABLE=1,PROC_ROOF_MAX_BUILDINGS=5,EA_WCS_DSM=${{ secrets.EA_WCS_DSM }},EA_WCS_DTM=${{ secrets.EA_WCS_DTM }},EA_LAYER_DSM=${{ secrets.EA_LAYER_DSM }},EA_LAYER_DTM=${{ secrets.EA_LAYER_DTM }},DSM_CACHE_DIR=/var/cache/dsm,ARTIFACT_DIR=/var/artifacts,GCS_ARTIFACTS_BUCKET=${{ secrets.GCS_ARTIFACTS_BUCKET_DEV }}" \
+            --add-volume name=models,type=cloud-storage,bucket="${{ secrets.GCS_MODELS_BUCKET_DEV }}" \
+            --add-volume-mount volume=models,mount-path=/models,read-only
+
+  deploy-staging:
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'staging'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Auth to Google Cloud (staging)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
+      - name: Setup gcloud (staging)
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID_STAGING }}
+      - name: Build image for staging (optional)
+        run: |
+          gcloud builds submit \
+            --tag "${{ secrets.GCP_REGION_STAGING }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_STAGING }}/ml/solaroptima-ml:${{ github.sha }}"
+      - name: Deploy to Cloud Run (staging)
+        run: |
+          gcloud run deploy solaroptima-ml-staging \
+            --image "${{ secrets.GCP_REGION_STAGING }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_STAGING }}/ml/solaroptima-ml:${{ github.sha }}" \
+            --region "${{ secrets.GCP_REGION_STAGING }}" \
+            --allow-unauthenticated \
+            --cpu=2 --memory=4Gi --concurrency=2 \
+            --set-env-vars "PROC_ROOF_ENABLE=1,PROC_ROOF_MAX_BUILDINGS=5,EA_WCS_DSM=${{ secrets.EA_WCS_DSM }},EA_WCS_DTM=${{ secrets.EA_WCS_DTM }},EA_LAYER_DSM=${{ secrets.EA_LAYER_DSM }},EA_LAYER_DTM=${{ secrets.EA_LAYER_DTM }},DSM_CACHE_DIR=/var/cache/dsm,ARTIFACT_DIR=/var/artifacts,GCS_ARTIFACTS_BUCKET=${{ secrets.GCS_ARTIFACTS_BUCKET_STAGING }}" \
+            --add-volume name=models,type=cloud-storage,bucket="${{ secrets.GCS_MODELS_BUCKET_STAGING }}" \
+            --add-volume-mount volume=models,mount-path=/models,read-only
+
+
