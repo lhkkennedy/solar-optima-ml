@@ -1,4 +1,5 @@
 import os
+import tempfile
 import numpy as np
 import requests
 from typing import Tuple, Optional, List
@@ -58,8 +59,17 @@ class DSMService:
         self.base_url = os.getenv("EA_DSM_BASE_URL", "https://environment.data.gov.uk/ds/survey")
         self.uk_bounds = {"min_lat": 49.9, "max_lat": 60.9, "min_lon": -8.6, "max_lon": 1.8}
         # Step‑1 additions
-        self.dsm_cache_dir = Path(os.getenv("DSM_CACHE_DIR", "/var/cache/dsm"))
-        self.dsm_cache_dir.mkdir(parents=True, exist_ok=True)
+        # Determine writable cache dir
+        default_cache = os.getenv("DSM_CACHE_DIR")
+        if not default_cache:
+            default_cache = os.path.join(tempfile.gettempdir(), "dsm_cache")
+        self.dsm_cache_dir = Path(default_cache)
+        try:
+            self.dsm_cache_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            # Fallback to local project-relative cache
+            self.dsm_cache_dir = Path("./.dsm_cache")
+            self.dsm_cache_dir.mkdir(parents=True, exist_ok=True)
         self.default_resolution_m = 1.0
         self.indexer = DsmIndexer(self.base_url, resolution_m=self.default_resolution_m)
         self.footprints = FootprintService()
