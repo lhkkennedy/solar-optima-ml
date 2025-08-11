@@ -115,6 +115,22 @@ python tools/procedural_roof/train_family.py --data data/pbsr_masks --out runs/f
 python tools/procedural_roof/export_onnx.py --pt runs/family_resnet18.pt --onnx models/proc_roof_family.onnx
 ```
 
+### Dev Preview Frontend (CORS-friendly launch)
+
+To test `/model3d` quickly with a bbox and image from a simple frontend, use the static preview under `web/preview/`.
+
+Serve it locally so the origin is http://localhost (avoids `Origin: null` CORS issues):
+
+```bash
+# Linux/macOS
+python -m http.server -d web/preview 8081
+
+# Windows PowerShell: open the browser then start the server
+powershell -Command "Start-Process http://localhost:8081"; python -m http.server -d web/preview 8081
+```
+
+Then set your dev environment secret `CORS_ALLOW_ORIGINS` to `http://localhost:8081` and redeploy so the API accepts calls from the preview.
+
 ### Python Example
 
 ```python

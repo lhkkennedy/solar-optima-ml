@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solar Optima ML-6 Preview</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"
+  />
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    #app { display: grid; grid-template-columns: 400px 1fr; grid-template-rows: auto 1fr; height: 100%; }
+    header { grid-column: 1 / -1; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    header input[type="text"] { width: 420px; padding: 6px 8px; }
+    header button { padding: 6px 10px; cursor: pointer; }
+    #sidebar { padding: 12px; border-right: 1px solid #e5e7eb; overflow: auto; }
+    #map { height: 100%; }
+    .section { margin-bottom: 16px; }
+    .muted { color: #6b7280; font-size: 12px; }
+    #response { white-space: pre-wrap; background: #0b1020; color: #e5e7eb; padding: 8px; border-radius: 6px; max-height: 220px; overflow: auto; font-size: 12px; }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    a.btn { display: inline-block; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 4px; text-decoration: none; color: #111827; background: #f9fafb; }
+    .pill { padding: 2px 6px; background: #eef2ff; color: #3730a3; border-radius: 999px; font-size: 12px; }
+    #bboxOut { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <strong>Solar Optima ML-6 Preview</strong>
+      <span class="pill">dev</span>
+      <input id="serviceUrl" type="text" placeholder="Service URL (e.g., https://solaroptima-ml-dev-...a.run.app or tag URL)" />
+      <button id="saveUrl">Use URL</button>
+      <span class="muted">Draw a rectangle on the map, upload an image, then Send to /model3d</span>
+    </header>
+    <aside id="sidebar">
+      <div class="section">
+        <div class="row"><strong>1) Draw BBox</strong> <span class="muted">(WGS84 order: [south, west, north, east])</span></div>
+        <div id="bboxOut" class="muted">No bbox yet</div>
+        <div style="margin-top:6px" class="row">
+          <button id="clearBbox">Clear</button>
+          <button id="zoomUK">Zoom UK</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <strong>2) Image</strong>
+        <div class="muted">Upload a small aerial image (PNG/JPG). It will be base64-encoded and sent with the bbox.</div>
+        <div style="margin-top:6px" class="row">
+          <input id="fileInput" type="file" accept="image/*" />
+          <button id="clearImage">Clear</button>
+        </div>
+        <div style="margin-top:6px" class="row">
+          <label for="basemap">Basemap:</label>
+          <select id="basemap">
+            <option value="satellite" selected>Satellite (Esri World Imagery)</option>
+            <option value="osm">Street Map (OSM)</option>
+          </select>
+          <button id="captureSat" title="Capture the satellite imagery under the bbox as the request image">Capture satellite under bbox</button>
+        </div>
+        <div style="margin-top:6px" class="muted" id="imgInfo">No image selected</div>
+      </div>
+
+      <div class="section">
+        <strong>3) Send</strong>
+        <div class="row" style="margin-top:6px">
+          <button id="sendModel3d">Send to /model3d</button>
+          <button id="sendInfer">Send to /infer</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <strong>Response</strong>
+        <div id="response">No response yet</div>
+        <div id="artifactLinks" class="row" style="margin-top:8px"></div>
+      </div>
+
+      <div class="section">
+        <strong>Tips</strong>
+        <div class="muted">
+          - Keep bbox small (e.g., one property).<br/>
+          - Smaller images (<= 512px) return faster.<br/>
+          - The service URL is persisted in local storage.
+        </div>
+      </div>
+    </aside>
+    <main id="map"></main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://unpkg.com/leaflet-image/leaflet-image.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
+
+
