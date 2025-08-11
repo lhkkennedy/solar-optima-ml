@@ -30,6 +30,8 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
+    # Require dev environment so env-scoped secrets (e.g., GCP_SA_KEY_DEV) are available
+    environment: dev
     steps:
       - uses: actions/checkout@v4
       - name: Auth to Google Cloud (dev)
