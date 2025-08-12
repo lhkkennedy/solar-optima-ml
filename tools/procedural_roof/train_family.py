@@ -28,9 +28,15 @@ class MaskDataset(Dataset):
             raise FileNotFoundError(p)
         img = cv2.resize(img, (self.size, self.size), interpolation=cv2.INTER_NEAREST)
         x = self.tf(img)
-        # Placeholder label: all T11 class for bootstrap (update later with PBSR labeler)
-        y = torch.tensor(0, dtype=torch.long)
-        return x.repeat(3, 1, 1), y
+        # Label from filename prefix: T11, T21, T32, T43
+        name = os.path.basename(p)
+        label_map = {"T11": 0, "T21": 1, "T32": 2, "T43": 3}
+        y_idx = 0
+        for k, v in label_map.items():
+            if name.startswith(k + "_"):
+                y_idx = v
+                break
+        return x.repeat(3, 1, 1), torch.tensor(y_idx, dtype=torch.long)
 
 
 def train(root: str, out: str, epochs: int = 5, bs: int = 64, lr: float = 1e-3):

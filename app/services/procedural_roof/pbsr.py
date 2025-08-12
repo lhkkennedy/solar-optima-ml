@@ -81,7 +81,9 @@ class PBSRService:
         def R(px, py, pw, ph):
             return Rect(int(px), int(py), int(max(1, pw)), int(max(1, ph)))
 
-        configs: Dict[str, List[List[Rect]]] = {"T11": [], "T21": [], "T32": [], "T43": []}
+        configs: Dict[str, List[List[Rect]]] = {
+            "T11": [], "T21": [], "T31": [], "T32": [], "T41": [], "T42": [], "T43": [], "T44": []
+        }
 
         # T11
         configs["T11"].append([R(x, y, w, h)])
@@ -116,12 +118,58 @@ class PBSRService:
                 R(x, y + h - bandh, bandw, bandh),
             ])
 
+        # T31: three parts forming a triangular connectivity
+        # top-mid bar and two lower corners
+        tb_h = max(1, h // 4)
+        cb_w = max(1, w // 3)
+        configs["T31"].append([
+            R(x + w // 4, y, w // 2, tb_h),
+            R(x, y + h // 2, cb_w, h // 2),
+            R(x + w - cb_w, y + h // 2, cb_w, h // 2),
+        ])
+        # alternative triangle: left-top, right-top, bottom-mid
+        configs["T31"].append([
+            R(x, y, cb_w, h // 2),
+            R(x + w - cb_w, y, cb_w, h // 2),
+            R(x + w // 3, y + h // 2, w // 3, h // 2),
+        ])
+
+        # T41: line of four (horizontal and vertical)
+        qw = max(1, w // 4)
+        qh = max(1, h // 4)
+        configs["T41"].append([
+            R(x + 0*qw, y + h//3, qw, h//3), R(x + 1*qw, y + h//3, qw, h//3),
+            R(x + 2*qw, y + h//3, qw, h//3), R(x + 3*qw, y + h//3, qw, h//3)
+        ])
+        configs["T41"].append([
+            R(x + w//3, y + 0*qh, w//3, qh), R(x + w//3, y + 1*qh, w//3, qh),
+            R(x + w//3, y + 2*qh, w//3, qh), R(x + w//3, y + 3*qh, w//3, qh)
+        ])
+
+        # T42: T-shape (branching at center). Horizontal bar + vertical stem
+        bar_h = max(1, h // 5)
+        stem_w = max(1, w // 5)
+        configs["T42"].append([
+            R(x, y + h//3, w, bar_h),
+            R(x + w//2 - stem_w//2, y, stem_w, h//3),
+            R(x + w//4 - stem_w//2, y + h//3, stem_w, h//3),
+            R(x + 3*w//4 - stem_w//2, y + h//3, stem_w, h//3),
+        ])
+
         # T43: four quadrants ring
         w2 = w // 2
         h2 = h // 2
         configs["T43"].append([
             R(x, y, w2, h2), R(x + w2, y, w - w2, h2),
             R(x, y + h2, w2, h - h2), R(x + w2, y + h2, w - w2, h - h2)
+        ])
+
+        # T44: triangle with a dangling part
+        configs["T44"].append([
+            R(x + w//4, y, w//2, h//4),          # top bar
+            R(x, y + h//3, w//3, h//3),         # left
+            R(x + 2*w//3, y + h//3, w//3, h//3),# right
+            R(x + w//2 - stem_w//2, y + 2*h//3, stem_w, h//3)  # dangling bottom
         ])
 
         return configs
