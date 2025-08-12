@@ -29,6 +29,8 @@
     a.btn { display: inline-block; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 4px; text-decoration: none; color: #111827; background: #f9fafb; }
     .pill { padding: 2px 6px; background: #eef2ff; color: #3730a3; border-radius: 999px; font-size: 12px; }
     #bboxOut { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    #viewerWrap { border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
+    model-viewer { width: 100%; height: 320px; background: #111827; }
   </style>
 </head>
 <body>
@@ -83,6 +85,41 @@
       </div>
 
       <div class="section">
+        <strong>Visual Preview</strong>
+        <div id="viewerWrap">
+          <model-viewer id="gltfViewer" camera-controls autoplay exposure="1.0" shadow-intensity="0.8" ar></model-viewer>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="overlayPlanes">Overlay planes</button>
+          <button id="overlayGeoJson">Overlay GeoJSON</button>
+          <button id="fitOverlay">Fit to overlay</button>
+          <button id="clearOverlay">Clear overlay</button>
+        </div>
+        <div class="row" style="margin-top:8px; gap:12px">
+          <label>Renderer
+            <select id="rendererMode">
+              <option value="canvas" selected>Canvas</option>
+              <option value="svg">SVG</option>
+            </select>
+          </label>
+          <label>Stroke <input id="strokeW" type="range" min="1" max="10" step="1" value="5"/></label>
+          <label>Fill <input id="fillA" type="range" min="0" max="1" step="0.05" value="0.25"/></label>
+          <label>Stroke color <input id="strokeC" type="color" value="#22c55e"/></label>
+          <label>Fill color <input id="fillC" type="color" value="#22c55e"/></label>
+          <label><input type="checkbox" id="showVertices" checked/> Vertices</label>
+          <label><input type="checkbox" id="showCentroid" checked/> Centroid</label>
+          <label><input type="checkbox" id="autoOverlay" checked/> Auto overlay</label>
+        </div>
+        <div class="section" style="margin-top:8px">
+          <strong>Render from JSON (debug)</strong>
+          <textarea id="jsonInput" rows="4" style="width:100%" placeholder='Paste full /model3d JSON here'></textarea>
+          <div class="row" style="margin-top:6px">
+            <button id="renderFromJson">Render</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <strong>Tips</strong>
         <div class="muted">
           - Keep bbox small (e.g., one property).<br/>
@@ -97,7 +134,8 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
   <script src="https://unpkg.com/leaflet-image/leaflet-image.js"></script>
-  <script src="script.js"></script>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script src="script.js?v=2"></script>
 </body>
 </html>
 
