@@ -45,17 +45,26 @@ def to_projected(lat: float, lon: float, target_epsg: str = "EPSG:27700") -> Tup
 
 
 def to_wgs84(x: float, y: float, source_epsg: str = "EPSG:27700") -> Tuple[float, float]:
-    """Convert projected CRS to WGS84 lat/lon. Fallback uses inverse of rough approx."""
+    """Convert projected CRS to WGS84 lat/lon.
+
+    When precise transforms are unavailable, use a consistent equirectangular
+    approximation by first deriving latitude from Y and then deriving longitude
+    from X using the cosine of that latitude. This avoids systematic longitude
+    drift introduced by using a fixed reference latitude.
+    """
     if _HAS_PYPROJ:
         t = Transformer.from_crs(source_epsg, "EPSG:4326", always_xy=True)
         lon, lat = t.transform(x, y)
         return float(lat), float(lon)  # keep (lat, lon)
-    # Fallback inverse of approximation is ambiguous without lat; assume mid‑UK
+    # Fallback: derive lat from Y, then use lat to compute meters-per-degree for lon
     m_per_deg_lat = 111_000.0
-    m_per_deg_lon = 111_000.0 * math.cos(math.radians(54.0))
-    lon = x / m_per_deg_lon
     lat = y / m_per_deg_lat
-    return lat, lon
+    m_per_deg_lon = 111_000.0 * math.cos(math.radians(lat))
+    # Guard against extreme latitudes causing near-zero cos(lat)
+    if abs(m_per_deg_lon) < 1e-6:
+        m_per_deg_lon = 1e-6
+    lon = x / m_per_deg_lon
+    return float(lat), float(lon)
 
 
 def bbox_projected_around(lat: float, lon: float, size_m: float, target_epsg: str = "EPSG:27700") -> BBoxProjected:

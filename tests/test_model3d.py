@@ -33,6 +33,17 @@ def test_model3d_basic_request():
     assert "edges" in data and isinstance(data["edges"], list)
     assert "summary" in data and "area_m2" in data["summary"]
     assert "bbox" in data
+    # Ensure polygons lie within returned bbox with small meter tolerance
+    bbox = data["bbox"]["epsg4326"]
+    min_lon, min_lat, max_lon, max_lat = bbox
+    lat_mid = 0.5 * (min_lat + max_lat)
+    # 5-meter tolerance converted to degrees
+    tol_lat = 5.0 / 111000.0
+    tol_lon = 5.0 / (111000.0 * max(0.1, np.cos(np.radians(lat_mid))))
+    for p in data.get("planes", []):
+        for lon, lat, _ in p.get("polygon", []):
+            assert (min_lon - tol_lon) <= lon <= (max_lon + tol_lon)
+            assert (min_lat - tol_lat) <= lat <= (max_lat + tol_lat)
 
 
 def test_model3d_with_image_mask():
