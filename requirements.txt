@@ -6,7 +6,7 @@ pillow==10.1.0
 numpy==1.24.3
 torch==2.1.1
 torchvision==0.16.1
-transformers==4.35.2
+transformers>=4.41.0
 opencv-python==4.8.1.78
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
@@ -15,4 +15,6 @@ pytest==7.4.3
 pytest-asyncio==0.21.1
 requests==2.31.0 
 pygltflib==1.16.2
+huggingface_hub>=0.23.0
+accelerate>=0.29.0
 pyproj==3.6.1
