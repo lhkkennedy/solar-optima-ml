@@ -68,6 +68,9 @@ Paths:
 - Snap plane borders to footprint if ≤0.2 m away
 - Validate normals with photo metadata/sun shadows when available (optional)
 
+## Wishlist
+- Street‑view façade texturing: fetch street‑level images (e.g., Google Street View) to texture façades of the 3D building models. This would "paint" building sides for realistic visualization. Requires camera pose estimation and photo-to-model UV projection; licensing and caching to be considered.
+
 ## Performance tactics (Cloud Run GPU)
 - Model storage: GCS bucket mounted read‑only via Cloud Storage volume (gcsfuse) at `/models`
 - Warm model on startup; low initial concurrency (1–2) then tune after load tests
