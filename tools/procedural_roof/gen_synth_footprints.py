@@ -29,16 +29,19 @@ class FootprintShapeParams:
     # Minimal part thickness as a fraction of the short side of bbox
     min_part_frac: float = 0.17  # ~= 1/6
     # Primary rectangle size range as fraction of bbox
-    primary_size_low: float = 0.45
+    primary_size_low: float = 0.65
     primary_size_high: float = 0.85
     # L-shape: stub thickness as fraction of primary dimension
-    l_stub_thickness_low: float = 0.35
-    l_stub_thickness_high: float = 0.55
+    l_stub_thickness_low: float = 0.8
+    l_stub_thickness_high: float = 0.9
     # L-shape: protrusion limit as fraction of primary dimension
-    l_protrusion_limit: float = 0.75
+    l_protrusion_limit: float = 1
     # T-shape: cap height as fraction of primary height
-    t_cap_height_low: float = 0.15
-    t_cap_height_high: float = 0.50
+    t_cap_height_low: float = 0.50  # Increased from 0.15 to make caps more visible
+    t_cap_height_high: float = 0.60  # Increased from 0.50 to make caps more proportional
+    # T-shape: primary height as fraction of bounding box height (for vertical primary)
+    t_primary_height_low: float = 0.70  # Primary height as fraction of bbox height
+    t_primary_height_high: float = 0.90  # Primary height as fraction of bbox height
     # U-shape: leg thickness as fraction of primary height
     u_leg_thickness_low: float = 0.35
     u_leg_thickness_high: float = 0.55
@@ -59,7 +62,7 @@ class FootprintShapeParams:
 class FootprintGenParams:
     """Top-level generation parameters for footprint masks."""
     # BBox size range (as a fraction of image min(h, w))
-    bbox_min_side_frac: float = 0.35
+    bbox_min_side_frac: float = 0.50  # Increased from 0.35 to ensure larger shapes
     bbox_max_side_frac: float = 0.90
     # Noise / augmentation
     occl_prob: float = 0.0
@@ -212,19 +215,80 @@ def _build_footprint_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: np
     py0 = int(y + (bh - primary_h) // 2)
 
     # Helper to clamp stub sizes and enforce area ratio
-    def _cap_area_and_create(ax: int, ay: int, aw: int, ah: int, p_area: int) -> Rect:
+    def _cap_area_and_create(ax: int, ay: int, aw: int, ah: int, p_area: int, preserve_flush: bool = False, primary_right_edge: int = None, is_t_shape: bool = False) -> Rect:
         sw = max(1, aw)
         sh = max(1, ah)
-        # enforce primary area >= 2x stub area
-        while sw * sh > max(1, p_area // 2):
-            # shrink the dominating dimension first
+        # For T-shapes, allow up to the full primary area (roughly equal sizes)
+        # For other shapes, be more lenient - allow up to 1/2 of primary area
+        if is_t_shape:
+            max_stub_area = max(1, p_area)  # Allow full primary area for T-shapes
+        else:
+            max_stub_area = max(1, p_area // 2)  # Increased from 1/3 to 1/2
+        while sw * sh > max_stub_area:
+            # shrink the dominating dimension first, but preserve minimum connection requirements
             if sw >= sh and sw > 1:
-                sw = max(1, int(sw * 0.8))
+                sw = max(1, int(sw * 0.9))  # Less aggressive shrinking (0.9 instead of 0.8)
             elif sh > 1:
-                sh = max(1, int(sh * 0.8))
+                sh = max(1, int(sh * 0.9))  # Less aggressive shrinking
             else:
                 break
+        
+        # If preserving flush connection, ensure stub extends to primary's edge
+        if preserve_flush and primary_right_edge is not None:
+            if ax + sw < primary_right_edge:
+                sw = primary_right_edge - ax
+        
         return _rect(ax, ay, sw, sh)
+    
+    # Helper to ensure L-shape connection by extending stub if needed
+    def _ensure_l_connection(primary_rect: Rect, stub_rect: Rect, is_vertical_primary: bool) -> Rect:
+        """Ensure stub connects to primary rectangle for proper L-shape."""
+        if is_vertical_primary:
+            # Primary is vertical, stub should be horizontal
+            # Check horizontal alignment first
+            if stub_rect.x + stub_rect.w < primary_rect.x:
+                # Stub is to the left of primary - extend it
+                new_w = primary_rect.x - stub_rect.x
+                return _rect(stub_rect.x, stub_rect.y, new_w, stub_rect.h)
+            elif stub_rect.x > primary_rect.x + primary_rect.w:
+                # Stub is to the right of primary - extend it
+                new_w = stub_rect.x + stub_rect.w - (primary_rect.x + primary_rect.w)
+                new_x = primary_rect.x + primary_rect.w
+                return _rect(new_x, stub_rect.y, new_w, stub_rect.h)
+            
+            # Check vertical alignment - stub should connect to primary's bottom edge
+            primary_bottom = primary_rect.y + primary_rect.h
+            if stub_rect.y + stub_rect.h < primary_bottom:
+                # Stub doesn't reach primary's bottom - extend it down
+                new_h = primary_bottom - stub_rect.y
+                return _rect(stub_rect.x, stub_rect.y, stub_rect.w, new_h)
+            elif stub_rect.y > primary_bottom:
+                # Stub is below primary's bottom - move it up
+                new_y = primary_bottom - stub_rect.h
+                return _rect(stub_rect.x, new_y, stub_rect.w, stub_rect.h)
+        else:
+            # Primary is horizontal, stub should be vertical
+            # Check vertical alignment first
+            if stub_rect.y + stub_rect.h < primary_rect.y:
+                # Stub is above primary - extend it
+                new_h = primary_rect.y - stub_rect.y
+                return _rect(stub_rect.x, stub_rect.y, stub_rect.w, new_h)
+            elif stub_rect.y > primary_rect.y + primary_rect.h:
+                # Stub is below primary - extend it
+                new_h = stub_rect.y + stub_rect.h - (primary_rect.y + primary_rect.h)
+                new_y = primary_rect.y + primary_rect.h
+                return _rect(stub_rect.x, new_y, stub_rect.w, new_h)
+            
+            # Check horizontal alignment - stub should connect to primary's side
+            if stub_rect.x + stub_rect.w < primary_rect.x:
+                # Stub doesn't reach primary's left edge - extend it right
+                new_w = primary_rect.x - stub_rect.x
+                return _rect(stub_rect.x, stub_rect.y, new_w, stub_rect.h)
+            elif stub_rect.x > primary_rect.x + primary_rect.w:
+                # Stub is to the right of primary - move it left
+                new_x = primary_rect.x + primary_rect.w - stub_rect.w
+                return _rect(new_x, stub_rect.y, stub_rect.w, stub_rect.h)
+        return stub_rect
 
     if shape == "I":  # one big block only
         rects = [_rect(x, y, bw, bh)]
@@ -235,7 +299,7 @@ def _build_footprint_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: np
         primary_vertical = rng.random() < 0.5
         if primary_vertical:
             # Tall primary leg hugging left or right side
-            primary_w = max(min_part, int(min(bw, bh) * float(rng.uniform(0.38, 0.52))))
+            primary_w = max(min_part, int(min(bw, bh) * float(rng.uniform(params.primary_size_low, params.primary_size_high))))
             primary_h = bh
             left_side = rng.random() < 0.5
             px0 = x if left_side else x + bw - primary_w
@@ -243,25 +307,44 @@ def _build_footprint_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: np
             primary = _rect(px0, py0, primary_w, primary_h)
             # Horizontal stub at the bottom, protruding horizontally from the primary
             stub_h = max(min_part, int(primary_w * float(rng.uniform(params.l_stub_thickness_low, params.l_stub_thickness_high))))
-            # Allow protrusion up to the configured limit
+            # Allow protrusion up to the configured limit, but ensure minimum size
             protr_max = max(2, int(params.l_protrusion_limit * primary_w))
-            stub_w = int(rng.integers(max(2, int(0.3 * primary_w)), protr_max + 1))
+            min_stub_w = max(2, int(0.4 * primary_w))  # Ensure stub is at least 40% of primary width
+            stub_w = int(rng.integers(min_stub_w, protr_max + 1))
             # Enforce a minimum thickness-to-length ratio to avoid skinny protrusions
-            min_ratio_h_over_w = 0.3
+            min_ratio_h_over_w = 0.4
             min_stub_h = int(np.ceil(stub_w * min_ratio_h_over_w))
             if stub_h < min_stub_h:
                 stub_h = min_stub_h
+            # Position stub to create proper L-shape (not T-shape)
             if left_side:
-                sx0 = px0 + primary_w
+                sx0 = px0 + primary_w  # Stub extends to the right of primary
             else:
-                sx0 = px0 - stub_w
-            sy0 = y + bh - stub_h
+                sx0 = px0 - stub_w  # Stub extends to the left of primary
+            # Ensure stub connects to primary's bottom edge
+            sy0 = py0 + primary_h - stub_h
+            # Ensure stub is tall enough to connect to primary's bottom
+            min_stub_h_for_connection = py0 + primary_h - sy0
+            if stub_h < min_stub_h_for_connection:
+                stub_h = min_stub_h_for_connection
+            # Ensure stub stays within bounding box
+            sx0 = max(x, sx0)
+            sy0 = max(y, sy0)
+            stub_w = min(stub_w, x + bw - sx0)
+            stub_h = min(stub_h, y + bh - sy0)
             primary_area = primary_w * primary_h
             stub = _cap_area_and_create(sx0, sy0, stub_w, stub_h, primary_area)
+            # Ensure proper L-shape connection AFTER area capping
+            stub = _ensure_l_connection(primary, stub, True)  # True = vertical primary
+            # Final check: ensure stub connects to primary
+            if stub.y + stub.h < primary.y + primary.h:
+                # Extend stub to reach primary's bottom
+                new_h = primary.y + primary.h - stub.y
+                stub = _rect(stub.x, stub.y, stub.w, new_h)
             rects = [primary, stub]
         else:
             # Wide primary bar at top or bottom
-            primary_h = max(min_part, int(min(bw, bh) * float(rng.uniform(0.38, 0.52))))
+            primary_h = max(min_part, int(min(bw, bh) * float(rng.uniform(params.primary_size_low, params.primary_size_high))))
             primary_w = bw
             top_side = rng.random() < 0.5
             px0 = x
@@ -269,49 +352,333 @@ def _build_footprint_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: np
             primary = _rect(px0, py0, primary_w, primary_h)
             # Vertical stub on left or right; vertical protrusion limited by configured limit
             stub_w = max(min_part, int(primary_h * float(rng.uniform(params.l_stub_thickness_low, params.l_stub_thickness_high))))
-            # Allow protrusion up to the configured limit
+            # Allow protrusion up to the configured limit, but ensure minimum size
             protr_max = max(2, int(params.l_protrusion_limit * primary_h))
-            stub_h = int(rng.integers(max(2, int(0.3 * primary_h)), protr_max + 1))
+            min_stub_h = max(2, int(0.4 * primary_h))  # Ensure stub is at least 40% of primary height
+            stub_h = int(rng.integers(min_stub_h, protr_max + 1))
             # Enforce a minimum thickness-to-length ratio to avoid skinny protrusions
-            min_ratio_w_over_h = 0.3
+            min_ratio_w_over_h = 0.4
             min_stub_w = int(np.ceil(stub_h * min_ratio_w_over_h))
             if stub_w < min_stub_w:
                 stub_w = min_stub_w
             left_side = rng.random() < 0.5
-            sx0 = x if left_side else x + bw - stub_w
+            # Position stub flush with primary's edge, not bounding box edge
+            if left_side:
+                sx0 = px0  # Stub starts at primary's left edge
+            else:
+                sx0 = px0 + primary_w - stub_w  # Stub ends at primary's right edge
+
+            # Position stub to create proper L-shape (not T-shape)
             if top_side:
+                sy0 = py0 + primary_h  # Stub extends below primary
+            else:
+                sy0 = py0 - stub_h  # Stub extends above primary
+            # Ensure stub connects to primary vertically
+            if top_side:
+                # Stub should start at primary's bottom edge
                 sy0 = py0 + primary_h
             else:
+                # Stub should end at primary's top edge
                 sy0 = py0 - stub_h
+            # Ensure stub stays within bounding box, but preserve flush connection to primary
+            sx0 = max(x, sx0)
+            sy0 = max(y, sy0)
+            # For horizontal primaries, ensure stub extends to primary's edge
+            if left_side:
+                # Stub should start at primary's left edge and extend right
+                sx0 = px0
+                stub_w = min(stub_w, x + bw - sx0)
+            else:
+                # Stub should end at primary's right edge and extend left
+                stub_w = min(stub_w, x + bw - sx0)
+                # Ensure stub ends exactly at primary's right edge
+                if sx0 + stub_w < px0 + primary_w:
+                    stub_w = px0 + primary_w - sx0
+            stub_h = min(stub_h, y + bh - sy0)
             primary_area = primary_w * primary_h
-            stub = _cap_area_and_create(sx0, sy0, stub_w, stub_h, primary_area)
+            # For horizontal primaries, preserve flush connection to primary's edge
+            preserve_flush = not left_side  # Only for right-side stubs
+            primary_right_edge = px0 + primary_w if preserve_flush else None
+            stub = _cap_area_and_create(sx0, sy0, stub_w, stub_h, primary_area, preserve_flush, primary_right_edge)
+            # For horizontal primaries, we already positioned the stub correctly, so skip _ensure_l_connection
+            # Final check: ensure stub connects to primary
+            if stub.x + stub.w < primary.x:
+                # Extend stub to reach primary's left edge
+                new_w = primary.x - stub.x
+                stub = _rect(stub.x, stub.y, new_w, stub.h)
+            elif stub.x > primary.x + primary.w:
+                # Move stub to connect to primary's right edge
+                new_x = primary.x + primary.w - stub.w
+                stub = _rect(new_x, stub.y, stub.w, stub.h)
+            # Final vertical connection check
+            if top_side:
+                # Ensure stub starts at primary's bottom
+                if stub.y > py0 + primary_h:
+                    new_y = py0 + primary_h
+                    stub = _rect(stub.x, new_y, stub.w, stub.h)
+            else:
+                # Ensure stub ends at primary's top
+                if stub.y + stub.h < py0:
+                    new_h = py0 - stub.y
+                    stub = _rect(stub.x, stub.y, stub.w, new_h)
             rects = [primary, stub]
         return rects
 
     if shape == "T":
-        # Primary vertical body centered; short horizontal cap on top or bottom
-        primary_w = max(min_part, int(min(bw, bh) * float(rng.uniform(0.38, 0.52))))
-        primary_h = bh
-        px0 = x + (bw - primary_w) // 2
-        py0 = y
-        primary = _rect(px0, py0, primary_w, primary_h)
-        # Cap bar height (vertical protrusion) limited by configured range
-        cap_h = int(rng.integers(max(2, int(params.t_cap_height_low * primary_h)), max(3, int(params.t_cap_height_high * primary_h))))
-        cap_w = int(rng.integers(int(0.4 * bw), int(0.9 * bw)))
-        cap_w = max(min_part, min(bw, cap_w))
-        on_top = rng.random() < 0.5
-        cx0 = x + (bw - cap_w) // 2
-        cy0 = y - cap_h if not on_top and (py0 - cap_h) >= y else (py0 + primary_h)
-        if on_top:
-            cy0 = y
-        # Enforce area ratio
-        stub = _cap_area_and_create(cx0, cy0, cap_w, cap_h, primary_w * primary_h)
+        # Choose orientation: vertical primary with horizontal cap, or horizontal primary with vertical cap
+        vertical_primary = rng.random() < 0.5
+        
+        if vertical_primary:
+            # Original T-shape: vertical primary with horizontal cap
+            # For T-shapes, make primary narrower to achieve 2:3 ratio with cap
+            t_primary_size_low = params.primary_size_low * 0.8  # Reduce primary width by 40%
+            t_primary_size_high = params.primary_size_high * 0.8
+            
+            # Ensure bounding box is large enough for T-shape requirements
+            # We need enough space for primary + cap with 2:3 ratio
+            # Cap needs to be 1.8x-2.5x primary width, so we need at least 2.5x primary width
+            min_required_bw = int(min_part * 2.5 / t_primary_size_low)  # Minimum bbox width needed
+            if bw < min_required_bw:
+                # Adjust primary size to fit within available space
+                max_primary_w = int(bw / 2.5)  # Ensure cap can be 2.5x primary width
+                primary_w = max(min_part, min(max_primary_w, int(min(bw, bh) * float(rng.uniform(t_primary_size_low, t_primary_size_high)))))
+            else:
+                primary_w = max(min_part, int(min(bw, bh) * float(rng.uniform(t_primary_size_low, t_primary_size_high))))
+            
+            # Primary height as fraction of bounding box height
+            primary_h = int(bh * float(rng.uniform(params.t_primary_height_low, params.t_primary_height_high)))
+            px0 = x + (bw - primary_w) // 2
+            py0 = y + (bh - primary_h) // 2  # Center the primary vertically
+            primary = _rect(px0, py0, primary_w, primary_h)
+            
+            # Cap bar height (vertical protrusion) limited by configured range
+            cap_h = int(rng.integers(max(2, int(params.t_cap_height_low * primary_h)), max(3, int(params.t_cap_height_high * primary_h))))
+            
+            # Adaptive cap width calculation based on available space
+            # Target cap width = primary_w * 1.5 to achieve the 2:3 ratio
+            target_cap_w = int(primary_w * 1.5)  # 1.5 = 3/2 to achieve 2:3 ratio
+            
+            # Calculate available space for cap
+            available_space = bw
+            # Ensure we have enough space for the cap with our desired multipliers
+            min_cap_w = max(min_part, int(1.8 * primary_w))  # At least 180% of primary width
+            max_cap_w = min(available_space, int(2.5 * primary_w))  # Up to 250% of primary width, but not exceeding bbox
+            
+            # If we don't have enough space for the minimum cap width, adjust primary size
+            if min_cap_w > available_space:
+                # Recalculate primary width to fit within available space
+                max_primary_w = int(available_space / 1.8)  # Ensure min_cap_w fits
+                primary_w = max(min_part, max_primary_w)
+                # Recalculate cap width range
+                min_cap_w = max(min_part, int(1.8 * primary_w))
+                max_cap_w = min(available_space, int(2.5 * primary_w))
+                # Update primary rectangle
+                px0 = x + (bw - primary_w) // 2
+                primary = _rect(px0, py0, primary_w, primary_h)
+            
+            # Ensure valid range for random integer generation
+            if min_cap_w >= max_cap_w:
+                # This should not happen with proper bounding box sizing
+                # If it does, it means our bounding box adjustment failed
+                # In this case, we need to reduce the primary width to make room for the cap
+                max_primary_w = int(bw / 1.8)  # Ensure cap can be at least 1.8x primary width
+                if max_primary_w >= min_part:
+                    primary_w = max(min_part, max_primary_w)
+                    # Recalculate cap width range
+                    min_cap_w = max(min_part, int(1.8 * primary_w))
+                    max_cap_w = min(bw, int(2.5 * primary_w))
+                    # Update primary rectangle
+                    px0 = x + (bw - primary_w) // 2
+                    primary = _rect(px0, py0, primary_w, primary_h)
+                else:
+                    # If we can't even fit a minimum primary, use fallback
+                    min_cap_w = max(min_part, int(1.2 * primary_w))
+                    max_cap_w = min(bw, int(1.8 * primary_w))
+                    
+                    # If still invalid, use primary width as fallback
+                    if min_cap_w >= max_cap_w:
+                        min_cap_w = max(min_part, primary_w)
+                        max_cap_w = min(bw, primary_w + min_part)
+                    
+                    # Final safety check - ensure we have a valid range
+                    if min_cap_w >= max_cap_w:
+                        # Last resort: use min_part as the range
+                        min_cap_w = min_part
+                        max_cap_w = min_part + 1
+            
+            cap_w = int(rng.integers(min_cap_w, max_cap_w + 1))
+            
+            on_top = rng.random() < 0.5
+            
+            # Allow cap to overlap with primary for better T-shape appearance
+            if on_top:
+                # For top cap: align top edge of cap with top edge of primary
+                cy0 = py0
+            else:
+                # For bottom cap: overlap with primary's bottom portion
+                # Position cap so it overlaps with the bottom portion of the primary
+                # The cap should extend from primary's bottom edge upward
+                cy0 = py0 + primary_h - cap_h
+                # Ensure the cap actually overlaps with the primary (not below it)
+                if cy0 > py0 + primary_h:
+                    cy0 = py0 + primary_h - cap_h
+            
+            # Initial positioning (will be corrected after area capping)
+            cx0 = px0 + (primary_w - cap_w) // 2  # Center initially
+            
+            # Enforce area ratio - allow T-shape caps to be roughly equal to primary area
+            stub = _cap_area_and_create(cx0, cy0, cap_w, cap_h, primary_w * primary_h, is_t_shape=True)
+            
+            # Now calculate the proper positioning based on the final cap dimensions
+            final_cap_w = stub.w
+            final_cap_h = stub.h
+            
+            # Ensure cap overlaps with primary to create proper T-shape
+            # Cap should be centered on primary, but always overlap
+            if final_cap_w <= primary_w:
+                # Cap is narrower than primary - center it
+                final_cx0 = px0 + (primary_w - final_cap_w) // 2
+            else:
+                # Cap is wider than primary - ensure it overlaps
+                # Position cap so it extends beyond primary on both sides
+                final_cx0 = px0 - (final_cap_w - primary_w) // 2
+                # Ensure cap doesn't go outside bounding box
+                if final_cx0 < x:
+                    final_cx0 = x
+                elif final_cx0 + final_cap_w > x + bw:
+                    final_cx0 = x + bw - final_cap_w
+            
+            # Update the stub with the correct position
+            stub = _rect(final_cx0, stub.y, final_cap_w, final_cap_h)
+            
+        else:
+            # Rotated T-shape: horizontal primary with vertical cap
+            # For horizontal T-shapes, make primary shorter to achieve 2:3 ratio with cap
+            t_primary_size_low = params.primary_size_low * 0.8  # Reduce primary height by 40%
+            t_primary_size_high = params.primary_size_high * 0.8
+            
+            # Ensure bounding box is large enough for T-shape requirements
+            # We need enough space for primary + cap with 2:3 ratio
+            # Cap needs to be 1.8x-2.5x primary height, so we need at least 2.5x primary height
+            min_required_bh = int(min_part * 2.5 / t_primary_size_low)  # Minimum bbox height needed
+            if bh < min_required_bh:
+                # Adjust primary size to fit within available space
+                max_primary_h = int(bh / 2.5)  # Ensure cap can be 2.5x primary height
+                primary_h = max(min_part, min(max_primary_h, int(min(bw, bh) * float(rng.uniform(t_primary_size_low, t_primary_size_high)))))
+            else:
+                primary_h = max(min_part, int(min(bw, bh) * float(rng.uniform(t_primary_size_low, t_primary_size_high))))
+            
+            primary_w = bw
+            px0 = x
+            py0 = y + (bh - primary_h) // 2
+            primary = _rect(px0, py0, primary_w, primary_h)
+            
+            # Cap bar width (horizontal protrusion) limited by configured range
+            cap_w = int(rng.integers(max(2, int(params.t_cap_height_low * primary_w)), max(3, int(params.t_cap_height_high * primary_w))))
+            
+            # Adaptive cap height calculation based on available space
+            # Target cap height = primary_h * 1.5 to achieve the 2:3 ratio
+            target_cap_h = int(primary_h * 1.5)  # 1.5 = 3/2 to achieve 2:3 ratio
+            
+            # Calculate available space for cap
+            available_space = bh
+            # Ensure we have enough space for the cap with our desired multipliers
+            min_cap_h = max(min_part, int(1.8 * primary_h))  # At least 180% of primary height
+            max_cap_h = min(available_space, int(2.5 * primary_h))  # Up to 250% of primary height, but not exceeding bbox
+            
+            # If we don't have enough space for the minimum cap height, adjust primary size
+            if min_cap_h > available_space:
+                # Recalculate primary height to fit within available space
+                max_primary_h = int(available_space / 1.8)  # Ensure min_cap_h fits
+                primary_h = max(min_part, max_primary_h)
+                # Recalculate cap height range
+                min_cap_h = max(min_part, int(1.8 * primary_h))
+                max_cap_h = min(available_space, int(2.5 * primary_h))
+                # Update primary rectangle
+                py0 = y + (bh - primary_h) // 2
+                primary = _rect(px0, py0, primary_w, primary_h)
+            
+            # Ensure valid range for random integer generation
+            if min_cap_h >= max_cap_h:
+                # This should not happen with proper bounding box sizing
+                # If it does, it means our bounding box adjustment failed
+                # In this case, we need to reduce the primary height to make room for the cap
+                max_primary_h = int(bh / 1.8)  # Ensure cap can be at least 1.8x primary height
+                if max_primary_h >= min_part:
+                    primary_h = max(min_part, max_primary_h)
+                    # Recalculate cap height range
+                    min_cap_h = max(min_part, int(1.8 * primary_h))
+                    max_cap_h = min(bh, int(2.5 * primary_h))
+                    # Update primary rectangle
+                    py0 = y + (bh - primary_h) // 2
+                    primary = _rect(px0, py0, primary_w, primary_h)
+                else:
+                    # If we can't even fit a minimum primary, use fallback
+                    min_cap_h = max(min_part, int(1.2 * primary_h))
+                    max_cap_h = min(bh, int(1.8 * primary_h))
+                    
+                    # If still invalid, use primary height as fallback
+                    if min_cap_h >= max_cap_h:
+                        min_cap_h = max(min_part, primary_h)
+                        max_cap_h = min(bh, primary_h + min_part)
+                    
+                    # Final safety check - ensure we have a valid range
+                    if min_cap_h >= max_cap_h:
+                        # Last resort: use min_part as the range
+                        min_cap_h = min_part
+                        max_cap_h = min_part + 1
+            
+            cap_h = int(rng.integers(min_cap_h, max_cap_h + 1))
+            
+            on_left = rng.random() < 0.5
+            
+            # Allow cap to overlap with primary for better T-shape appearance
+            if on_left:
+                # For left cap: align left edge of cap with left edge of primary
+                cx0 = px0
+            else:
+                # For right cap: overlap with primary's right portion
+                # Position cap so it overlaps with the right portion of the primary
+                # The cap should extend from primary's right edge leftward
+                cx0 = px0 + primary_w - cap_w
+                # Ensure the cap actually overlaps with the primary (not beyond it)
+                if cx0 < px0:
+                    cx0 = px0
+            
+            # Initial positioning (will be corrected after area capping)
+            cy0 = py0 + (primary_h - cap_h) // 2  # Center initially
+            
+            # Enforce area ratio - allow T-shape caps to be roughly equal to primary area
+            stub = _cap_area_and_create(cx0, cy0, cap_w, cap_h, primary_w * primary_h, is_t_shape=True)
+            
+            # Now calculate the proper positioning based on the final cap dimensions
+            final_cap_w = stub.w
+            final_cap_h = stub.h
+            
+            # Ensure cap overlaps with primary to create proper T-shape
+            # Cap should be centered on primary, but always overlap
+            if final_cap_h <= primary_h:
+                # Cap is shorter than primary - center it
+                final_cy0 = py0 + (primary_h - final_cap_h) // 2
+            else:
+                # Cap is taller than primary - ensure it overlaps
+                # Position cap so it extends beyond primary on both sides
+                final_cy0 = py0 - (final_cap_h - primary_h) // 2
+                # Ensure cap doesn't go outside bounding box
+                if final_cy0 < y:
+                    final_cy0 = y
+                elif final_cy0 + final_cap_h > y + bh:
+                    final_cy0 = y + bh - final_cap_h
+            
+            # Update the stub with the correct position
+            stub = _rect(stub.x, final_cy0, final_cap_w, final_cap_h)
+        
         rects = [primary, stub]
         return rects
 
     if shape == "U":
         # Primary horizontal bar at top; two short vertical legs
-        primary_h = max(min_part, int(min(bw, bh) * float(rng.uniform(0.38, 0.52))))
+        primary_h = max(min_part, int(min(bw, bh) * float(rng.uniform(params.primary_size_low, params.primary_size_high))))
         primary_w = bw
         px0 = x
         py0 = y
@@ -381,6 +748,7 @@ def gen_footprints(
     preview_cols: int = 8,
     dump_params: bool = True,
     wipe_output: bool = False,
+    debug_mode: bool = False,
 ) -> None:
     """Generate footprint masks for classification training with labels I/L/T/U/Z/O.
     Uses the sophisticated parameter system from PBSR but with classifier shape logic.
@@ -395,13 +763,69 @@ def gen_footprints(
     min_side = int(min(h, w) * p.bbox_min_side_frac)
     max_side = int(min(h, w) * p.bbox_max_side_frac)
     previews: list[np.ndarray] = []
+    debug_info = [] if debug_mode else None
+    
     for i in range(num):
         shp = shapes[int(rng.integers(0, len(shapes)))]
         # choose a bounding box with decent margins
         bw = int(rng.integers(min_side, max_side))
         bh = int(rng.integers(min_side, max_side))
+        
+        # For T-shapes, ensure bounding box is large enough for the 2:3 ratio requirement
+        if shp == "T":
+            # T-shapes can be either vertical primary (horizontal cap) or horizontal primary (vertical cap)
+            # We need to ensure the bounding box is large enough for both orientations
+            min_part_frac = p.shape.min_part_frac
+            t_primary_size_low = p.shape.primary_size_low * 0.8
+            t_primary_size_high = p.shape.primary_size_high * 0.8
+            
+            min_part = max(6, int(min(h, w) * min_part_frac))
+            
+            # For vertical primary (horizontal cap): need width >= 2.8 * min_part
+            min_required_bw_vertical = int(2.8 * min_part)
+            
+            # For horizontal primary (vertical cap): need height >= 2.8 * min_part  
+            min_required_bh_horizontal = int(2.8 * min_part)
+            
+            # Ensure bounding box is large enough for both orientations
+            if bw < min_required_bw_vertical:
+                bw = min(min_required_bw_vertical, max_side)
+            if bh < min_required_bh_horizontal:
+                bh = min(min_required_bh_horizontal, max_side)
+            
+            # Additional safety checks for both orientations
+            # Vertical primary: ensure width can accommodate max cap
+            max_primary_w = int(bw * t_primary_size_high)
+            max_cap_w_needed = int(2.5 * max_primary_w)
+            if max_cap_w_needed > bw:
+                required_bw = max_cap_w_needed
+                bw = min(required_bw, max_side)
+            
+            # Horizontal primary: ensure height can accommodate max cap
+            max_primary_h = int(bh * t_primary_size_high)
+            max_cap_h_needed = int(2.5 * max_primary_h)
+            if max_cap_h_needed > bh:
+                required_bh = max_cap_h_needed
+                bh = min(required_bh, max_side)
+        
         x = int(rng.integers(0, max(1, w - bw)))
         y = int(rng.integers(0, max(1, h - bh)))
+        
+        # Store debug info if enabled
+        if debug_mode:
+            debug_data = {
+                "image_id": i,
+                "shape": shp,
+                "bbox": {"x": x, "y": y, "w": bw, "h": bh},
+                "params": {
+                    "primary_size_low": p.shape.primary_size_low,
+                    "primary_size_high": p.shape.primary_size_high,
+                    "l_stub_thickness_low": p.shape.l_stub_thickness_low,
+                    "l_stub_thickness_high": p.shape.l_stub_thickness_high,
+                    "l_protrusion_limit": p.shape.l_protrusion_limit,
+                }
+            }
+        
         rects = _build_footprint_rects(shp, x, y, bw, bh, rng, p.shape)
         # If any rect carries a color, render an RGB debug canvas; otherwise grayscale
         has_color = any(isinstance(r, (tuple, list)) and len(r) == 2 for r in rects)
@@ -434,12 +858,27 @@ def gen_footprints(
         canvas = _rand_affine(canvas, rng, translate_frac=p.translate_frac, morph_prob=p.morph_prob)
         if i < preview_count:
             previews.append(canvas.copy())
-        cv2.imwrite(os.path.join(out_dir, f"{shp}_{i:06d}.png"), canvas)
+        
+        # Save image
+        img_filename = f"{shp}_{i:06d}.png"
+        cv2.imwrite(os.path.join(out_dir, img_filename), canvas)
+        
+        # Store debug info if enabled
+        if debug_mode:
+            debug_data["filename"] = img_filename
+            debug_data["rects"] = [(r.x, r.y, r.w, r.h) for r in rects]
+            debug_info.append(debug_data)
     if dump_params:
         _write_params_dump(out_dir, p)
     if preview_count > 0 and len(previews) > 0:
         grid = _make_preview_grid(previews, grid_cols=preview_cols)
         cv2.imwrite(os.path.join(out_dir, "preview_grid.png"), grid)
+    
+    # Save debug info if enabled
+    if debug_mode and debug_info:
+        debug_path = os.path.join(out_dir, "debug_info.json")
+        with open(debug_path, "w", encoding="utf-8") as f:
+            json.dump(debug_info, f, indent=2)
 
 
 def _write_params_dump(out_dir: str, params: FootprintGenParams) -> None:
@@ -527,6 +966,8 @@ if __name__ == "__main__":
     ap.add_argument("--l_protrusion_limit", type=float, default=None)
     ap.add_argument("--t_cap_height_low", type=float, default=None)
     ap.add_argument("--t_cap_height_high", type=float, default=None)
+    ap.add_argument("--t_primary_height_low", type=float, default=None)
+    ap.add_argument("--t_primary_height_high", type=float, default=None)
     ap.add_argument("--u_leg_thickness_low", type=float, default=None)
     ap.add_argument("--u_leg_thickness_high", type=float, default=None)
     ap.add_argument("--u_leg_height_low", type=float, default=None)
@@ -541,6 +982,7 @@ if __name__ == "__main__":
     ap.add_argument("--preview_cols", type=int, default=8, help="Preview grid columns")
     ap.add_argument("--no_dump_params", action="store_true", help="Disable writing params_used.json")
     ap.add_argument("--wipe", action="store_true", help="Clear output directory before generating (safety check for non-images)")
+    ap.add_argument("--debug", action="store_true", help="Enable debug mode - save parameter info for each image")
     args = ap.parse_args()
 
     if args.mode == "footprints":
@@ -578,6 +1020,10 @@ if __name__ == "__main__":
             shape_p.t_cap_height_low = float(args.t_cap_height_low)
         if args.t_cap_height_high is not None:
             shape_p.t_cap_height_high = float(args.t_cap_height_high)
+        if args.t_primary_height_low is not None:
+            shape_p.t_primary_height_low = float(args.t_primary_height_low)
+        if args.t_primary_height_high is not None:
+            shape_p.t_primary_height_high = float(args.t_primary_height_high)
         if args.u_leg_thickness_low is not None:
             shape_p.u_leg_thickness_low = float(args.u_leg_thickness_low)
         if args.u_leg_thickness_high is not None:
@@ -608,6 +1054,7 @@ if __name__ == "__main__":
             preview_cols=max(1, int(args.preview_cols)),
             dump_params=not args.no_dump_params,
             wipe_output=args.wipe,
+            debug_mode=args.debug,
         )
     elif args.mode == "roofs":
         if args.wipe:
