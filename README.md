@@ -32,6 +32,17 @@ ML micro-service for automated solar panel assessment and quotation for UK resid
    - API Documentation: http://localhost:8000/docs
    - Health Check: http://localhost:8000/health
 
+### Environment Variables (key)
+
+- `SEG_BACKEND=torch|onnx`
+- `SEG_MODEL_PATH=/models/segformer-b0`
+- `PROC_ROOF_ENABLE=0|1`: include procedural roof output in `/model3d`
+- `PROC_ROOF_USE_CLASSIFIER=0|1`: use ONNX classifiers for roof family if present
+- `PROC_ROOF_ONNX_DIR=/models`: directory containing ONNX files
+ - `EA_WCS_DSM`, `EA_WCS_DTM`, `EA_LAYER_DSM`, `EA_LAYER_DTM`, `DSM_CACHE_DIR`: elevation config
+ - `ARTIFACT_DIR`, `ARTIFACT_BASE_URL`, `GCS_ARTIFACTS_BUCKET`: artifact storage
+ - `PORT`: port to bind (Cloud Run sets this automatically)
+
 ### Docker
 
 1. **Build the image**:
@@ -41,7 +52,9 @@ ML micro-service for automated solar panel assessment and quotation for UK resid
 
 2. **Run the container**:
    ```bash
-   docker run -p 8000:8000 solaroptima-ml
+   # Locally
+   docker run -e PORT=8000 -p 8000:8000 solaroptima-ml
+   # On Cloud Run, the service will listen on $PORT automatically
    ```
 
 ## API Usage
@@ -57,6 +70,15 @@ curl -X POST "http://localhost:8000/infer" \
   -F "file=@aerial_image.png"
 ```
 
+### Procedural + Elevation (3D required)
+
+We reconstruct a vector, parametric roof model (PBSR + ridge detection) and then require DSM/DTM elevation to produce full 3D (heights, pitches):
+
+- Enable procedural (default): `PROC_ROOF_ENABLE=1`
+- Optional ONNX classifiers: `PROC_ROOF_USE_CLASSIFIER=1`, `PROC_ROOF_ONNX_DIR=/models`
+- Elevation for 3D (required): set EA WCS env vars (`EA_WCS_DSM`, `EA_WCS_DTM`, `EA_LAYER_DSM`, `EA_LAYER_DTM`) and `DSM_CACHE_DIR`.
+- `/model3d` includes `procedural_roofs` (footprint, parts, ridges) and returns 3D (ridges_3d, per‑part pitch/aspect) by sampling nDSM and fitting per‑part planes.
+
 **Response**:
 ```json
 {
@@ -66,6 +88,48 @@ curl -X POST "http://localhost:8000/infer" \
   "mask_size": [256, 256]
 }
 ```
+
+## Procedural Roofs + Elevation (3D)
+
+Enable a vector roof model from a single image (inspired by Zhang & Aliaga, EUROGRAPHICS 2022):
+
+- Set env:
+  - `PROC_ROOF_ENABLE=1`
+  - Elevation (required for 3D): `EA_WCS_DSM`, `EA_WCS_DTM`, `EA_LAYER_DSM`, `EA_LAYER_DTM`, `DSM_CACHE_DIR`
+  - optional classifiers: `PROC_ROOF_USE_CLASSIFIER=1`, `PROC_ROOF_ONNX_DIR=/models`
+- Response from `/model3d` will include a `procedural_roofs` key:
+  ```json
+  {
+    "footprint_regularized": [[lon,lat], ...],
+    "parts": [
+      {"rect_bbox": [[lon,lat],...], "roof_family": "gable", "ridges": [[[lon,lat],[lon,lat]]], "confidence": 0.8}
+    ]
+  }
+  ```
+
+Training small classifiers (optional):
+
+```bash
+python tools/procedural_roof/gen_synth_footprints.py --out data/pbsr_masks --num 50000
+python tools/procedural_roof/train_family.py --data data/pbsr_masks --out runs/family_resnet18.pt --epochs 10
+python tools/procedural_roof/export_onnx.py --pt runs/family_resnet18.pt --onnx models/proc_roof_family.onnx
+```
+
+### Dev Preview Frontend (CORS-friendly launch)
+
+To test `/model3d` quickly with a bbox and image from a simple frontend, use the static preview under `web/preview/`.
+
+Serve it locally so the origin is http://localhost (avoids `Origin: null` CORS issues):
+
+```bash
+# Linux/macOS
+python -m http.server -d web/preview 8081
+
+# Windows PowerShell: open the browser then start the server
+powershell -Command "Start-Process http://localhost:8081"; python -m http.server -d web/preview 8081
+```
+
+Then set your dev environment secret `CORS_ALLOW_ORIGINS` to `http://localhost:8081` and redeploy so the API accepts calls from the preview.
 
 ### Python Example
 
@@ -349,6 +413,27 @@ LOG_LEVEL=INFO
 MAX_IMAGE_SIZE=1024
 DSM_CACHE_ENABLED=true
 ```
+
+### Segmentation Backend (ML‑6)
+- Configure via env:
+  - `SEG_BACKEND`: `torch` or `onnx` (default `torch`)
+  - `SEG_MODEL_PATH`: path to model (e.g., `/models/segformer-b0.onnx` mounted from GCS)
+- Cloud Run GPU (example flags already in CD):
+  - `--gpu=type=nvidia-tesla-t4,count=1`
+  - `--add-volume name=models,type=cloud-storage,bucket=$GCS_MODELS_BUCKET`
+  - `--add-volume-mount volume=models,mount-path=/models,read-only`
+
+## ML-6 (EA LiDAR) usage notes
+
+Start with on-demand WCS (no mirror):
+- Set (optional) environment variables:
+  - `EA_WCS_DSM` / `EA_WCS_DTM` (defaults point to EA 1 m composite WCS)
+  - `EA_LAYER_DSM` / `EA_LAYER_DTM` (defaults: `lidar-composite-dsm-1m` / `lidar-composite-dtm-1m`)
+- Ensure `DSM_CACHE_DIR` exists (defaults to `/var/cache/dsm`); derived nDSM windows are cached there as `.npy` files.
+
+Later, when you add a JSON tile index or mirror to GCS:
+- Provide `LIDAR_INDEX_JSON` (path to a JSON list of tile records with `bbox_27700`, `res_m`, `dsm_url`, `dtm_url`).
+- The service will prefer the mirror/index tiles; WCS becomes a fallback only.
 
 ## Performance
 

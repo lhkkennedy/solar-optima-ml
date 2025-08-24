@@ -1,1 +1,1 @@
-# Services package 
+from .instance_service import InstanceService, Instance, BBox  # noqa: F401
