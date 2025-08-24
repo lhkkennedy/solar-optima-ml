@@ -4,12 +4,97 @@ import numpy as np
 import cv2
 
 import os, sys
+import json
+import math
+import shutil
+from dataclasses import dataclass, asdict, field
+from typing import Optional, Tuple, List, Any
 THIS_DIR = os.path.dirname(__file__)
 ROOT_DIR = os.path.abspath(os.path.join(THIS_DIR, os.pardir, os.pardir))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 from app.services.procedural_roof.pbsr import PBSRService, Rect
+
+
+# -------------------------
+# Tuning-friendly parameters
+# -------------------------
+
+@dataclass
+class FootprintShapeParams:
+    """Parameters controlling the internal geometry of footprint shapes.
+    Adjust these to change thicknesses and proportions of roof parts.
+    """
+    # Minimal part thickness as a fraction of the short side of bbox
+    min_part_frac: float = 0.17  # ~= 1/6
+    # Primary rectangle size range as fraction of bbox
+    primary_size_low: float = 0.45
+    primary_size_high: float = 0.85
+    # L-shape: stub thickness as fraction of primary dimension
+    l_stub_thickness_low: float = 0.35
+    l_stub_thickness_high: float = 0.55
+    # L-shape: protrusion limit as fraction of primary dimension
+    l_protrusion_limit: float = 0.75
+    # T-shape: cap height as fraction of primary height
+    t_cap_height_low: float = 0.15
+    t_cap_height_high: float = 0.50
+    # U-shape: leg thickness as fraction of primary height
+    u_leg_thickness_low: float = 0.35
+    u_leg_thickness_high: float = 0.55
+    # U-shape: leg height as fraction of primary height
+    u_leg_height_low: float = 0.20
+    u_leg_height_high: float = 0.50
+    # Z-shape: stub height as fraction of primary height
+    z_stub_height_low: float = 0.18
+    z_stub_height_high: float = 0.32
+    # Z-shape: protrusion limit as fraction of primary width
+    z_protrusion_limit: float = 0.50
+    # O-shape: ring thickness as fraction of short side
+    o_ring_thickness_low: float = 0.28
+    o_ring_thickness_high: float = 0.40
+
+
+@dataclass
+class FootprintGenParams:
+    """Top-level generation parameters for footprint masks."""
+    # BBox size range (as a fraction of image min(h, w))
+    bbox_min_side_frac: float = 0.35
+    bbox_max_side_frac: float = 0.90
+    # Noise / augmentation
+    occl_prob: float = 0.0
+    morph_prob: float = 0.0
+    translate_frac: float = 0.02
+    # RNG
+    seed: int = 42
+    # Shape geometry parameters
+    shape: FootprintShapeParams = field(default_factory=FootprintShapeParams)
+
+
+def _update_dataclass_from_dict(obj: Any, data: dict) -> Any:
+    """Update a dataclass instance in-place from a flat or nested dict."""
+    for k, v in (data or {}).items():
+        if not hasattr(obj, k):
+            continue
+        cur = getattr(obj, k)
+        if hasattr(cur, "__dataclass_fields__") and isinstance(v, dict):
+            _update_dataclass_from_dict(cur, v)
+        else:
+            setattr(obj, k, v)
+    return obj
+
+
+def _load_footprint_params_from_config(config_path: Optional[str]) -> Optional[FootprintGenParams]:
+    if not config_path:
+        return None
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception:
+        return None
+    p = FootprintGenParams()
+    _update_dataclass_from_dict(p, (cfg.get("footprint") or {}))
+    return p
 
 
 def gen_synth_roof_edges(out_dir: str, num: int = 20000, h: int = 128, w: int = 128):
@@ -106,129 +191,21 @@ def _as_rect(r: object) -> Rect:
     raise TypeError(f"Expected Rect or (x,y,w,h) or (Rect,color), got {type(r)}: {r}")
 
 
-def _build_family_rects(fam: str, x: int, y: int, bw: int, bh: int, rng: np.random.Generator) -> list[Rect]:
-    """Deterministic, crisp templates per family with slight ratio jitter.
-    Produces axis-aligned parts that resemble canonical I/L/T/U/Z shapes.
-    """
-    rects: list[Rect] = []
-    # Clamp minimal part size to avoid thin slivers and favor realistic thick strokes
-    min_part = max(6, min(bw, bh) // 5)
-    # thickness ~ 28–38% of the short side for bolder footprints
-    thk = int(min(bw, bh) * float(rng.uniform(0.28, 0.38)))
-    thk = max(min_part, thk)
-    if fam == "T11":
-        rects = [_rect(x, y, bw, bh)]
-    elif fam == "T21":
-        # L shape: one vertical leg + one horizontal leg
-        t = thk
-        # choose corner (0: TL, 1: TR, 2: BL, 3: BR)
-        corner = int(rng.integers(0, 4))
-        if corner == 0:  # top-left L
-            rects = [
-                _rect(x, y, t, bh),
-                _rect(x, y + bh - t, bw, t)
-            ]
-        elif corner == 1:  # top-right L
-            rects = [
-                _rect(x + bw - t, y, t, bh),
-                _rect(x, y + bh - t, bw, t)
-            ]
-        elif corner == 2:  # bottom-left L
-            rects = [
-                _rect(x, y, bw, t),
-                _rect(x, y, t, bh)
-            ]
-        else:  # bottom-right L
-            rects = [
-                _rect(x, y, bw, t),
-                _rect(x + bw - t, y, t, bh)
-            ]
-    elif fam == "T31":
-        # T shape: top bar + bottom stem (bold strokes)
-        bar_h = thk
-        stem_w = thk
-        rects = [
-            _rect(x, y, bw, bar_h),
-            _rect(x + (bw - stem_w)//2, y + bar_h, stem_w, bh - bar_h),
-            _rect(x, y, 0, 0)  # placeholder removed below
-        ]
-        rects = rects[:2]
-    elif fam == "T32":
-        # U shape: top bar + two legs
-        bar_h = thk
-        leg_w = thk
-        leg_h = bh - bar_h
-        rects = [
-            _rect(x, y, bw, bar_h),
-            _rect(x, y + bar_h, leg_w, leg_h),
-            _rect(x + bw - leg_w, y + bar_h, leg_w, leg_h)
-        ]
-    elif fam == "T41":
-        # Z shape composed of three bold rectangles: two offset horizontal bars and one vertical connector.
-        bar_h = thk
-        # bar length as a fraction of width to emphasize Z limbs
-        L = max(thk * 2, int(bw * float(rng.uniform(0.55, 0.8))))
-        if rng.random() < 0.5:
-            # orientation: top-left to bottom-right
-            top_x = x
-            bot_x = x + bw - L
-            connector_x = x + L - thk // 2
-            rects = [
-                _rect(top_x, y, L, bar_h),
-                _rect(bot_x, y + bh - bar_h, L, bar_h),
-                _rect(connector_x, y + bar_h, thk, bh - 2 * bar_h),
-            ]
-        else:
-            # orientation: top-right to bottom-left
-            top_x = x + bw - L
-            bot_x = x
-            connector_x = x + bw - L - thk // 2
-            rects = [
-                _rect(top_x, y, L, bar_h),
-                _rect(bot_x, y + bh - bar_h, L, bar_h),
-                _rect(connector_x, y + bar_h, thk, bh - 2 * bar_h),
-            ]
-    elif fam == "T42":
-        # T shape with different rects attached near the bar: use three bold stems (left/center/right) into a thick bar
-        bar_h = thk
-        stem_c = thk
-        stem_l = int(thk * float(rng.uniform(0.8, 1.2)))
-        stem_r = int(thk * float(rng.uniform(0.8, 1.2)))
-        rects = [
-            _rect(x, y, bw, bar_h),
-            _rect(x + bw//2 - stem_c//2, y, stem_c, bh),
-            _rect(x + bw//4 - stem_l//2, y, stem_l, bh//2 + bar_h//2),
-            _rect(x + 3*bw//4 - stem_r//2, y, stem_r, bh//2 + bar_h//2),
-        ]
-    elif fam == "T43":
-        # Four-quadrant ring with a clear hole (hole thickness ~= thk)
-        w2 = bw // 2; h2 = bh // 2
-        rects = [
-            _rect(x, y, w2, h2), _rect(x + w2, y, bw - w2, h2),
-            _rect(x, y + h2, w2, bh - h2), _rect(x + w2, y + h2, bw - w2, bh - h2)
-        ]
-    else:  # T44: step-like dangling part
-        bar_h = max(min_part, int(bh * 0.7))
-        step_w = max(min_part, int(bw * 0.35))
-        rects = [
-            _rect(x, y, bw, bar_h),
-            _rect(x + bw//2 - step_w//2, y + bar_h, step_w, bh - bar_h)
-        ]
-    return rects
 
 
-def _build_classifier_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: np.random.Generator) -> list[Rect]:
-    """Shapes for classifier: I(F1), L(F2), T(F2), U(F3), Z(F3), O(F4).
+
+def _build_footprint_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: np.random.Generator, params: FootprintShapeParams) -> list[Rect]:
+    """Shapes for footprint classification: I(F1), L(F2), T(F2), U(F3), Z(F3), O(F4).
     Enforces one primary rectangle much larger than others (>=2x area), with
-    all other rectangles being short stubs whose protrusion is < 0.5 of the
-    primary rectangle height (for vertical protrusions) or width (for horizontal).
+    all other rectangles being short stubs whose protrusion is limited relative to
+    the primary rectangle dimensions.
     """
     rects: list[Rect] = []
-    min_part = max(6, min(bw, bh) // 6)
+    min_part = max(6, int(min(bw, bh) * params.min_part_frac))
 
     # Primary size heuristics
-    primary_w = max(min_part * 2, int(min(bw, int(bw * float(rng.uniform(0.45, 0.85))))))
-    primary_h = max(min_part * 2, int(min(bh, int(bh * float(rng.uniform(0.45, 0.85))))))
+    primary_w = max(min_part * 2, int(min(bw, int(bw * float(rng.uniform(params.primary_size_low, params.primary_size_high))))))
+    primary_h = max(min_part * 2, int(min(bh, int(bh * float(rng.uniform(params.primary_size_low, params.primary_size_high))))))
 
     # Place primary, possibly centered initially; per-shape we may snap to sides
     px0 = int(x + (bw - primary_w) // 2)
@@ -265,9 +242,9 @@ def _build_classifier_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: n
             py0 = y
             primary = _rect(px0, py0, primary_w, primary_h)
             # Horizontal stub at the bottom, protruding horizontally from the primary
-            stub_h = max(min_part, int(primary_w * float(rng.uniform(0.35, 0.55))))
-            # Allow a little more protrusion for L: up to 0.75 * primary width
-            protr_max = max(2, int(0.75 * primary_w))
+            stub_h = max(min_part, int(primary_w * float(rng.uniform(params.l_stub_thickness_low, params.l_stub_thickness_high))))
+            # Allow protrusion up to the configured limit
+            protr_max = max(2, int(params.l_protrusion_limit * primary_w))
             stub_w = int(rng.integers(max(2, int(0.3 * primary_w)), protr_max + 1))
             # Enforce a minimum thickness-to-length ratio to avoid skinny protrusions
             min_ratio_h_over_w = 0.3
@@ -290,10 +267,10 @@ def _build_classifier_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: n
             px0 = x
             py0 = y if top_side else y + bh - primary_h
             primary = _rect(px0, py0, primary_w, primary_h)
-            # Vertical stub on left or right; vertical protrusion limited by 0.5 * primary height
-            stub_w = max(min_part, int(primary_h * float(rng.uniform(0.35, 0.55))))
-            # Allow a little more protrusion for L: up to 0.75 * primary height
-            protr_max = max(2, int(0.75 * primary_h))
+            # Vertical stub on left or right; vertical protrusion limited by configured limit
+            stub_w = max(min_part, int(primary_h * float(rng.uniform(params.l_stub_thickness_low, params.l_stub_thickness_high))))
+            # Allow protrusion up to the configured limit
+            protr_max = max(2, int(params.l_protrusion_limit * primary_h))
             stub_h = int(rng.integers(max(2, int(0.3 * primary_h)), protr_max + 1))
             # Enforce a minimum thickness-to-length ratio to avoid skinny protrusions
             min_ratio_w_over_h = 0.3
@@ -318,8 +295,8 @@ def _build_classifier_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: n
         px0 = x + (bw - primary_w) // 2
         py0 = y
         primary = _rect(px0, py0, primary_w, primary_h)
-        # Cap bar height (vertical protrusion) limited by 0.5 * primary height
-        cap_h = int(rng.integers(max(2, int(0.15 * primary_h)), max(3, int(0.5 * primary_h))))
+        # Cap bar height (vertical protrusion) limited by configured range
+        cap_h = int(rng.integers(max(2, int(params.t_cap_height_low * primary_h)), max(3, int(params.t_cap_height_high * primary_h))))
         cap_w = int(rng.integers(int(0.4 * bw), int(0.9 * bw)))
         cap_w = max(min_part, min(bw, cap_w))
         on_top = rng.random() < 0.5
@@ -339,9 +316,9 @@ def _build_classifier_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: n
         px0 = x
         py0 = y
         primary = _rect(px0, py0, primary_w, primary_h)
-        # Legs: vertical protrusion limited by 0.5 * primary height
-        leg_h = int(rng.integers(max(2, int(0.2 * primary_h)), max(3, int(0.5 * primary_h))))
-        leg_w = max(min_part, int(primary_h * float(rng.uniform(0.35, 0.55))))
+        # Legs: vertical protrusion limited by configured range
+        leg_h = int(rng.integers(max(2, int(params.u_leg_height_low * primary_h)), max(3, int(params.u_leg_height_high * primary_h))))
+        leg_w = max(min_part, int(primary_h * float(rng.uniform(params.u_leg_thickness_low, params.u_leg_thickness_high))))
         gap = int(max(2, bw * 0.15))
         lx0 = x + gap
         rx0 = x + bw - gap - leg_w
@@ -360,9 +337,9 @@ def _build_classifier_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: n
         px0 = x + (bw - primary_w) // 2
         py0 = y + (bh - primary_h) // 2
         primary = _rect(px0, py0, primary_w, primary_h)
-        # Horizontal protrusions limited by 0.5 * primary width
-        stub_h = max(min_part, int(primary_h * float(rng.uniform(0.18, 0.32))))
-        protr_max = max(2, int(0.5 * primary_w))
+        # Horizontal protrusions limited by configured range
+        stub_h = max(min_part, int(primary_h * float(rng.uniform(params.z_stub_height_low, params.z_stub_height_high))))
+        protr_max = max(2, int(params.z_protrusion_limit * primary_w))
         stub_w_left = int(rng.integers(max(2, int(0.25 * primary_w)), protr_max + 1))
         stub_w_right = int(rng.integers(max(2, int(0.25 * primary_w)), protr_max + 1))
         # left stub at top-left side, extending to the left
@@ -378,7 +355,7 @@ def _build_classifier_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: n
         return rects
 
     # "O" F4 (ring of four rectangles) – keep uniform to preserve a clean hole
-    t = max(min_part, int(min(bw, bh) * float(rng.uniform(0.28, 0.4))))
+    t = max(min_part, int(min(bw, bh) * float(rng.uniform(params.o_ring_thickness_low, params.o_ring_thickness_high))))
     inner_h = max(0, bh - 2 * t)
     inner_w = max(0, bw - 2 * t)
     if inner_h > 0 and inner_w > 0:
@@ -393,25 +370,39 @@ def _build_classifier_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: n
     return rects
 
 
-def gen_classifier_families(out_dir: str, num: int = 200000, h: int = 128, w: int = 128,
-                            occl_prob: float = 0.0, morph_prob: float = 0.0,
-                            shapes: list[str] | None = None) -> None:
-    """Generate segmentation-like masks for classifier training with labels I/L/T/U/Z/O.
+def gen_footprints(
+    out_dir: str,
+    num: int = 200000,
+    h: int = 128,
+    w: int = 128,
+    shapes: list[str] | None = None,
+    params: Optional[FootprintGenParams] = None,
+    preview_count: int = 0,
+    preview_cols: int = 8,
+    dump_params: bool = True,
+    wipe_output: bool = False,
+) -> None:
+    """Generate footprint masks for classification training with labels I/L/T/U/Z/O.
+    Uses the sophisticated parameter system from PBSR but with classifier shape logic.
     """
+    if wipe_output:
+        _safe_wipe_directory(out_dir, force=wipe_output)
     os.makedirs(out_dir, exist_ok=True)
-    rng = np.random.default_rng(1234)
+    p = params or FootprintGenParams()
+    rng = np.random.default_rng(p.seed)
     if not shapes:
         shapes = ["I", "L", "T", "U", "Z", "O"]
+    min_side = int(min(h, w) * p.bbox_min_side_frac)
+    max_side = int(min(h, w) * p.bbox_max_side_frac)
+    previews: list[np.ndarray] = []
     for i in range(num):
         shp = shapes[int(rng.integers(0, len(shapes)))]
         # choose a bounding box with decent margins
-        min_side = int(min(h, w) * 0.45)
-        max_side = int(min(h, w) * 0.9)
         bw = int(rng.integers(min_side, max_side))
         bh = int(rng.integers(min_side, max_side))
         x = int(rng.integers(0, max(1, w - bw)))
         y = int(rng.integers(0, max(1, h - bh)))
-        rects = _build_classifier_rects(shp, x, y, bw, bh, rng)
+        rects = _build_footprint_rects(shp, x, y, bw, bh, rng, p.shape)
         # If any rect carries a color, render an RGB debug canvas; otherwise grayscale
         has_color = any(isinstance(r, (tuple, list)) and len(r) == 2 for r in rects)
         if has_color:
@@ -436,109 +427,190 @@ def gen_classifier_families(out_dir: str, num: int = 200000, h: int = 128, w: in
                 x0 = max(0, min(w, x0)); x1 = max(0, min(w, x1))
                 y0 = max(0, min(h, y0)); y1 = max(0, min(h, y1))
                 canvas[y0:y1, x0:x1] = 255
-        if rng.random() < occl_prob:
+        if rng.random() < p.occl_prob:
             ox = int(rng.integers(x, x + bw)); oy = int(rng.integers(y, y + bh))
             ow = max(2, int(bw * 0.08)); oh = max(2, int(bh * 0.08))
             canvas[max(0, oy):min(h, oy+oh), max(0, ox):min(w, ox+ow)] = 0
-        canvas = _rand_affine(canvas, rng, translate_frac=0.02, morph_prob=morph_prob)
+        canvas = _rand_affine(canvas, rng, translate_frac=p.translate_frac, morph_prob=p.morph_prob)
+        if i < preview_count:
+            previews.append(canvas.copy())
         cv2.imwrite(os.path.join(out_dir, f"{shp}_{i:06d}.png"), canvas)
+    if dump_params:
+        _write_params_dump(out_dir, p)
+    if preview_count > 0 and len(previews) > 0:
+        grid = _make_preview_grid(previews, grid_cols=preview_cols)
+        cv2.imwrite(os.path.join(out_dir, "preview_grid.png"), grid)
 
 
-def gen_pbsr_families(out_dir: str, num: int = 200000, h: int = 128, w: int = 128,
-                      occl_prob: float = 0.0, morph_prob: float = 0.0,
-                      families: list[str] | None = None) -> None:
-    """Generate labeled PBSR family masks with crisp axis-aligned parts.
-    Use low/no occlusions to resemble target shapes; minimal jitter to avoid overfitting.
-    """
-    os.makedirs(out_dir, exist_ok=True)
-    rng = np.random.default_rng(42)
-    if families is None or len(families) == 0:
-        families = ["T11", "T21", "T31", "T32", "T43"]  # default subset
-    for i in range(num):
-        fam = families[int(rng.integers(0, len(families)))]
-        # random bbox size and position (ensure variety of aspect and coverage)
-        min_side = int(min(h, w) * 0.35)
-        max_side = int(min(h, w) * 0.9)
-        bw = int(rng.integers(min_side, max_side))
-        bh = int(rng.integers(min_side, max_side))
-        x = int(rng.integers(0, max(1, w - bw)))
-        y = int(rng.integers(0, max(1, h - bh)))
-        ww = x + bw
-        hh = y + bh
-        rects = _build_family_rects(fam, x, y, bw, bh, rng)
-        # rasterize
-        has_color = any(isinstance(r, (tuple, list)) and len(r) == 2 for r in rects)
-        if has_color:
-            canvas = np.zeros((h, w, 3), dtype=np.uint8)
-            for r in rects:
-                color = (255, 255, 255)
-                if isinstance(r, (tuple, list)) and len(r) == 2:
-                    color = tuple(int(c) for c in r[1])
-                    r = r[0]
-                r = _as_rect(r)
-                x0, y0 = r.x, r.y
-                x1, y1 = x0 + r.w, y0 + r.h
-                x0 = max(0, min(w, x0)); x1 = max(0, min(w, x1))
-                y0 = max(0, min(h, y0)); y1 = max(0, min(h, y1))
-                canvas[y0:y1, x0:x1] = color
-        else:
-            canvas = np.zeros((h, w), dtype=np.uint8)
-            for r in rects:
-                r = _as_rect(r)
-                x0, y0 = r.x, r.y
-                x1, y1 = x0 + r.w, y0 + r.h
-                x0 = max(0, min(w, x0)); x1 = max(0, min(w, x1))
-                y0 = max(0, min(h, y0)); y1 = max(0, min(h, y1))
-                canvas[y0:y1, x0:x1] = 255
-        # optional small occlusions
-        if rng.random() < occl_prob:
-            ox = int(rng.integers(x, ww)); oy = int(rng.integers(y, hh))
-            ow = max(2, int(bw * 0.1)); oh = max(2, int(bh * 0.1))
-            canvas[max(0, oy):min(h, oy+oh), max(0, ox):min(w, ox+ow)] = 0
-        # minimal affine, no rotation, optional mild morph
-        canvas = _rand_affine(canvas, rng, translate_frac=0.02, morph_prob=morph_prob)
-        cv2.imwrite(os.path.join(out_dir, f"{fam}_{i:06d}.png"), canvas)
+def _write_params_dump(out_dir: str, params: FootprintGenParams) -> None:
+    try:
+        dump_path = os.path.join(out_dir, "params_used.json")
+        with open(dump_path, "w", encoding="utf-8") as f:
+            json.dump(asdict(params), f, indent=2)
+    except Exception:
+        pass
 
 
-def main(out_dir: str, num: int = 10000, h: int = 128, w: int = 128):
-    os.makedirs(out_dir, exist_ok=True)
-    rng = np.random.default_rng(42)
-    for i in range(num):
-        mask = np.zeros((h, w), dtype=np.uint8)
-        # random bbox
-        x0 = rng.integers(8, w // 4)
-        y0 = rng.integers(8, h // 4)
-        x1 = rng.integers(3 * w // 4, w - 8)
-        y1 = rng.integers(3 * h // 4, h - 8)
-        mask[y0:y1, x0:x1] = 1
-        # add small noise along border
-        if rng.random() < 0.5:
-            rr = rng.integers(0, h, size=(50,))
-            cc = rng.integers(0, w, size=(50,))
-            mask[rr, cc] = 1
-        # save
-        cv2.imwrite(os.path.join(out_dir, f"mask_{i:06d}.png"), mask * 255)
+def _safe_wipe_directory(out_dir: str, force: bool = False) -> None:
+    """Safely clear output directory, with optional force flag to bypass checks."""
+    if not os.path.exists(out_dir):
+        return
+    
+    if not force:
+        # Check if directory contains non-image files (potential safety issue)
+        items = os.listdir(out_dir)
+        non_image_exts = {'.txt', '.json', '.csv', '.md', '.py', '.sh', '.bat', '.exe', '.dll', '.so', '.dylib'}
+        has_non_images = any(
+            any(item.lower().endswith(ext) for ext in non_image_exts) 
+            for item in items if os.path.isfile(os.path.join(out_dir, item))
+        )
+        if has_non_images:
+            raise ValueError(
+                f"Output directory '{out_dir}' contains non-image files. "
+                f"Use --wipe to force clear the directory."
+            )
+    
+    # Remove all contents
+    for item in os.listdir(out_dir):
+        item_path = os.path.join(out_dir, item)
+        if os.path.isfile(item_path):
+            os.unlink(item_path)
+        elif os.path.isdir(item_path):
+            shutil.rmtree(item_path)
+
+
+def _make_preview_grid(images: list[np.ndarray], grid_cols: int = 8) -> np.ndarray:
+    if not images:
+        return np.zeros((16, 16), dtype=np.uint8)
+    cell_h, cell_w = images[0].shape[:2]
+    cols = max(1, grid_cols)
+    rows = int(math.ceil(len(images) / cols))
+    is_rgb = (images[0].ndim == 3)
+    grid_shape = (rows * cell_h, cols * cell_w, 3) if is_rgb else (rows * cell_h, cols * cell_w)
+    grid = np.zeros(grid_shape, dtype=np.uint8)
+    for idx, img in enumerate(images):
+        r = idx // cols
+        c = idx % cols
+        y0, x0 = r * cell_h, c * cell_w
+        if img.shape[:2] != (cell_h, cell_w):
+            img = cv2.resize(img, (cell_w, cell_h), interpolation=cv2.INTER_NEAREST)
+        grid[y0:y0+cell_h, x0:x0+cell_w] = img
+    return grid
+
+
+
+
+
+
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--num", type=int, default=10000)
-    ap.add_argument("--mode", choices=["footprints", "roofs", "pbsr", "classifier"], default="footprints")
-    ap.add_argument("--occl_prob", type=float, default=0.0)
-    ap.add_argument("--morph_prob", type=float, default=0.0)
-    ap.add_argument("--families", type=str, default="", help="Comma-separated list, e.g. T11,T21,T31,T32,T43")
-    ap.add_argument("--shapes", type=str, default="", help="Comma-separated list for classifier: I,L,T,U,Z,O")
+    ap.add_argument("--mode", choices=["footprints", "roofs"], default="footprints")
+    # Footprint generation parameters
+    ap.add_argument("--shapes", type=str, default="", help="Comma-separated list for footprints: I,L,T,U,Z,O")
+    ap.add_argument("--config", type=str, default="", help="Optional JSON with 'footprint' params block")
+    ap.add_argument("--seed", type=int, default=None, help="Override RNG seed")
+    ap.add_argument("--bbox_min_side_frac", type=float, default=None)
+    ap.add_argument("--bbox_max_side_frac", type=float, default=None)
+    ap.add_argument("--occl_prob", type=float, default=None)
+    ap.add_argument("--morph_prob", type=float, default=None)
+    ap.add_argument("--translate_frac", type=float, default=None)
+    # Shape geometry overrides
+    ap.add_argument("--min_part_frac", type=float, default=None)
+    ap.add_argument("--primary_size_low", type=float, default=None)
+    ap.add_argument("--primary_size_high", type=float, default=None)
+    ap.add_argument("--l_stub_thickness_low", type=float, default=None)
+    ap.add_argument("--l_stub_thickness_high", type=float, default=None)
+    ap.add_argument("--l_protrusion_limit", type=float, default=None)
+    ap.add_argument("--t_cap_height_low", type=float, default=None)
+    ap.add_argument("--t_cap_height_high", type=float, default=None)
+    ap.add_argument("--u_leg_thickness_low", type=float, default=None)
+    ap.add_argument("--u_leg_thickness_high", type=float, default=None)
+    ap.add_argument("--u_leg_height_low", type=float, default=None)
+    ap.add_argument("--u_leg_height_high", type=float, default=None)
+    ap.add_argument("--z_stub_height_low", type=float, default=None)
+    ap.add_argument("--z_stub_height_high", type=float, default=None)
+    ap.add_argument("--z_protrusion_limit", type=float, default=None)
+    ap.add_argument("--o_ring_thickness_low", type=float, default=None)
+    ap.add_argument("--o_ring_thickness_high", type=float, default=None)
+    # Quality-of-life helpers
+    ap.add_argument("--preview_count", type=int, default=0, help="Save N first samples in a preview grid")
+    ap.add_argument("--preview_cols", type=int, default=8, help="Preview grid columns")
+    ap.add_argument("--no_dump_params", action="store_true", help="Disable writing params_used.json")
+    ap.add_argument("--wipe", action="store_true", help="Clear output directory before generating (safety check for non-images)")
     args = ap.parse_args()
 
     if args.mode == "footprints":
-        main(args.out, args.num)
-    elif args.mode == "roofs":
-        gen_synth_roof_edges(args.out, args.num)
-    elif args.mode == "pbsr":
-        fams = [s.strip() for s in args.families.split(",") if s.strip()] if args.families else None
-        gen_pbsr_families(args.out, args.num, occl_prob=args.occl_prob, morph_prob=args.morph_prob, families=fams)
-    elif args.mode == "classifier":
         shp = [s.strip().upper() for s in args.shapes.split(",") if s.strip()] if args.shapes else None
-        gen_classifier_families(args.out, args.num, occl_prob=args.occl_prob, morph_prob=args.morph_prob, shapes=shp)
+        # Load params from JSON if provided
+        p = _load_footprint_params_from_config(args.config) if args.config else FootprintGenParams()
+        # CLI overrides (flat)
+        if args.seed is not None:
+            p.seed = int(args.seed)
+        if args.bbox_min_side_frac is not None:
+            p.bbox_min_side_frac = float(args.bbox_min_side_frac)
+        if args.bbox_max_side_frac is not None:
+            p.bbox_max_side_frac = float(args.bbox_max_side_frac)
+        if args.occl_prob is not None:
+            p.occl_prob = float(args.occl_prob)
+        if args.morph_prob is not None:
+            p.morph_prob = float(args.morph_prob)
+        if args.translate_frac is not None:
+            p.translate_frac = float(args.translate_frac)
+        # Nested shape overrides
+        shape_p = p.shape
+        if args.min_part_frac is not None:
+            shape_p.min_part_frac = float(args.min_part_frac)
+        if args.primary_size_low is not None:
+            shape_p.primary_size_low = float(args.primary_size_low)
+        if args.primary_size_high is not None:
+            shape_p.primary_size_high = float(args.primary_size_high)
+        if args.l_stub_thickness_low is not None:
+            shape_p.l_stub_thickness_low = float(args.l_stub_thickness_low)
+        if args.l_stub_thickness_high is not None:
+            shape_p.l_stub_thickness_high = float(args.l_stub_thickness_high)
+        if args.l_protrusion_limit is not None:
+            shape_p.l_protrusion_limit = float(args.l_protrusion_limit)
+        if args.t_cap_height_low is not None:
+            shape_p.t_cap_height_low = float(args.t_cap_height_low)
+        if args.t_cap_height_high is not None:
+            shape_p.t_cap_height_high = float(args.t_cap_height_high)
+        if args.u_leg_thickness_low is not None:
+            shape_p.u_leg_thickness_low = float(args.u_leg_thickness_low)
+        if args.u_leg_thickness_high is not None:
+            shape_p.u_leg_thickness_high = float(args.u_leg_thickness_high)
+        if args.u_leg_height_low is not None:
+            shape_p.u_leg_height_low = float(args.u_leg_height_low)
+        if args.u_leg_height_high is not None:
+            shape_p.u_leg_height_high = float(args.u_leg_height_high)
+        if args.z_stub_height_low is not None:
+            shape_p.z_stub_height_low = float(args.z_stub_height_low)
+        if args.z_stub_height_high is not None:
+            shape_p.z_stub_height_high = float(args.z_stub_height_high)
+        if args.z_protrusion_limit is not None:
+            shape_p.z_protrusion_limit = float(args.z_protrusion_limit)
+        if args.o_ring_thickness_low is not None:
+            shape_p.o_ring_thickness_low = float(args.o_ring_thickness_low)
+        if args.o_ring_thickness_high is not None:
+            shape_p.o_ring_thickness_high = float(args.o_ring_thickness_high)
+
+        gen_footprints(
+            args.out,
+            args.num,
+            shapes=shp,
+            params=p,
+            h=128,
+            w=128,
+            preview_count=max(0, int(args.preview_count)),
+            preview_cols=max(1, int(args.preview_cols)),
+            dump_params=not args.no_dump_params,
+            wipe_output=args.wipe,
+        )
+    elif args.mode == "roofs":
+        if args.wipe:
+            _safe_wipe_directory(args.out, force=args.wipe)
+        gen_synth_roof_edges(args.out, args.num)
 
