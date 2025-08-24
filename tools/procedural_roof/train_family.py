@@ -11,12 +11,17 @@ from torchvision import models, transforms
 
 
 class MaskDataset(Dataset):
-    def __init__(self, root: str, size: int = 128):
+    def __init__(self, root: str, size: int = 128, classes: list[str] | None = None):
         self.paths = sorted(glob.glob(os.path.join(root, "*.png")))
         self.size = size
         self.tf = transforms.Compose([
             transforms.ToTensor(),  # HWC uint8 -> CHW float [0,1]
         ])
+        # Supported families (8 classes)
+        self.classes = classes or [
+            "T11", "T21", "T31", "T32", "T41", "T42", "T43", "T44"
+        ]
+        self.label_map = {name: idx for idx, name in enumerate(self.classes)}
 
     def __len__(self):
         return len(self.paths)
@@ -28,22 +33,18 @@ class MaskDataset(Dataset):
             raise FileNotFoundError(p)
         img = cv2.resize(img, (self.size, self.size), interpolation=cv2.INTER_NEAREST)
         x = self.tf(img)
-        # Label from filename prefix: T11, T21, T32, T43
+        # Label from filename prefix
         name = os.path.basename(p)
-        label_map = {"T11": 0, "T21": 1, "T32": 2, "T43": 3}
-        y_idx = 0
-        for k, v in label_map.items():
-            if name.startswith(k + "_"):
-                y_idx = v
-                break
-        return x.repeat(3, 1, 1), torch.tensor(y_idx, dtype=torch.long)
+        prefix = name.split("_")[0]
+        y_idx = self.label_map.get(prefix, 0)
+        return x.repeat(3, 1, 1), torch.tensor(int(y_idx), dtype=torch.long)
 
 
-def train(root: str, out: str, epochs: int = 5, bs: int = 64, lr: float = 1e-3):
-    ds = MaskDataset(root)
+def train(root: str, out: str, epochs: int = 5, bs: int = 64, lr: float = 1e-3, num_classes: int = 8, size: int = 128):
+    ds = MaskDataset(root, size=size)
     dl = DataLoader(ds, batch_size=bs, shuffle=True, num_workers=2)
     model = models.resnet18(weights=None)
-    model.fc = nn.Linear(model.fc.in_features, 4)  # T11,T21,T32,T43
+    model.fc = nn.Linear(model.fc.in_features, num_classes)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     opt = optim.Adam(model.parameters(), lr=lr)
@@ -71,6 +72,10 @@ if __name__ == "__main__":
     ap.add_argument("--data", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--epochs", type=int, default=5)
+    ap.add_argument("--bs", type=int, default=64)
+    ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--num_classes", type=int, default=8)
+    ap.add_argument("--size", type=int, default=128)
     args = ap.parse_args()
-    train(args.data, args.out, epochs=args.epochs)
+    train(args.data, args.out, epochs=args.epochs, bs=args.bs, lr=args.lr, num_classes=args.num_classes, size=args.size)
 
