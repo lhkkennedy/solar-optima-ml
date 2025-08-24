@@ -82,6 +82,25 @@ PROC_ROOF_USE_CLASSIFIER=1
 PROC_ROOF_ONNX_DIR=C:\models
 ```
 
+### Footprint classification dataset (I/L/T/U/Z/O)
+
+Use the synthetic footprint generator to build a labeled dataset for the footprint classifier. Images are named by class prefix (I, L, T, U, Z, O).
+
+Train split (100k):
+```bash
+python tools/procedural_roof/gen_synth_footprints.py --mode footprints --out artifacts/footprints_cls/train --num 100000 --wipe --seed 1337 --bbox_min_side_frac 0.6 --bbox_max_side_frac 0.85 --morph_prob 0.35 --rotate_prob 0.9 --rotate_max_deg 30 --boundary_noise_prob 1.0 --boundary_noise_density 0.025 --boundary_add_frac 0.5 --boundary_band_px 6 --boundary_blob_radius_min 3 --preview_count 0
+```
+
+Validation split (10k):
+```bash
+python tools/procedural_roof/gen_synth_footprints.py --mode footprints --out artifacts/footprints_cls/val --num 10000 --wipe --seed 2026 --bbox_min_side_frac 0.6 --bbox_max_side_frac 0.85 --morph_prob 0.35 --rotate_prob 0.9 --rotate_max_deg 30 --boundary_noise_prob 1.0 --boundary_noise_density 0.025 --boundary_add_frac 0.5 --boundary_band_px 6 --preview_count 0
+```
+
+Test split (10k):
+```bash
+python tools/procedural_roof/gen_synth_footprints.py --mode footprints --out artifacts/footprints_cls/test --num 10000 --wipe --seed 4243 --bbox_min_side_frac 0.6 --bbox_max_side_frac 0.85 --morph_prob 0.35 --rotate_prob 0.9 --rotate_max_deg 30 --boundary_noise_prob 1.0 --boundary_noise_density 0.025 --boundary_add_frac 0.5 --boundary_band_px 6 --preview_count 0
+```
+
 ### Next steps (after family classifier)
 
 - Add classifier gating in `procedural_roof/pipeline.py` and confidence fallback.

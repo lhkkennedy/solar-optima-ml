@@ -49,13 +49,16 @@ class FootprintShapeParams:
     u_leg_height_low: float = 0.30
     u_leg_height_high: float = 0.50
     # Z-shape: stub height as fraction of primary height
-    z_stub_height_low: float = 0.18
-    z_stub_height_high: float = 0.32
+    z_stub_height_low: float = 0.35
+    z_stub_height_high: float = 0.45
     # Z-shape: protrusion limit as fraction of primary width
-    z_protrusion_limit: float = 0.50
+    z_protrusion_limit: float = 0.5
+    # Z-shape: min/max base fraction of primary width for stub width lower bound
+    z_stub_width_min_frac: float = 0.45
+    z_stub_width_max_frac: float = 0.65
     # O-shape: ring thickness as fraction of short side
-    o_ring_thickness_low: float = 0.28
-    o_ring_thickness_high: float = 0.40
+    o_ring_thickness_low: float = 0.35
+    o_ring_thickness_high: float = 0.4
 
 
 @dataclass
@@ -68,6 +71,21 @@ class FootprintGenParams:
     occl_prob: float = 0.0
     morph_prob: float = 0.0
     translate_frac: float = 0.02
+    # Augmentation: small arbitrary rotation probability and max degrees
+    rotate_prob: float = 0.0
+    rotate_max_deg: float = 15.0
+    # Backward-compat: 90-degree rotation probability (deprecated if rotate_prob > 0)
+    rotate_90_prob: float = 0.0
+    # Boundary occlusion/noise: probability and density (fraction of boundary pixels sampled)
+    boundary_noise_prob: float = 0.0
+    boundary_noise_density: float = 0.20
+    # Thickness (in pixels) of the boundary band considered for toggling
+    boundary_band_px: int = 2
+    # Blob radius range for boundary noise circles (in pixels)
+    boundary_blob_radius_min: int = 1
+    boundary_blob_radius_max: int = 3
+    # Fraction of boundary blobs that add material (outer side) vs remove (inner side)
+    boundary_add_frac: float = 0.5
     # RNG
     seed: int = 42
     # Shape geometry parameters
@@ -735,32 +753,133 @@ def _build_footprint_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: np
                     nx = x + ly
                     ny = y + (bw - (lx + r.w))
                 rotated.append(_rect(nx, ny, r.h, r.w))
+            # After rotation, shift the whole shape to keep a small margin from bbox edges
+            margin = max(1, int(0.02 * min(bw, bh)))
+            min_x = min(rr.x for rr in rotated)
+            min_y = min(rr.y for rr in rotated)
+            max_xw = max(rr.x + rr.w for rr in rotated)
+            max_yh = max(rr.y + rr.h for rr in rotated)
+            dx = 0
+            dy = 0
+            if min_x < x + margin:
+                dx += (x + margin) - min_x
+            if min_y < y + margin:
+                dy += (y + margin) - min_y
+            if max_xw + dx > x + bw - margin:
+                dx -= (max_xw + dx) - (x + bw - margin)
+            if max_yh + dy > y + bh - margin:
+                dy -= (max_yh + dy) - (y + bh - margin)
+            if dx != 0 or dy != 0:
+                rotated = [_rect(rr.x + dx, rr.y + dy, rr.w, rr.h) for rr in rotated]
             rects = rotated
 
         return rects
 
     if shape == "Z":
         # Primary central block; two short horizontal stubs on opposite sides at different heights
-        primary_w = max(min_part * 2, int(bw * float(rng.uniform(0.45, 0.7))))
-        primary_h = max(min_part * 2, int(bh * float(rng.uniform(0.45, 0.7))))
+        primary_w = max(min_part * 2, int(bw * float(rng.uniform(0.4, 0.6))))
+        primary_h = max(min_part * 2, int(bh * float(rng.uniform(0.7, 0.8))))
         px0 = x + (bw - primary_w) // 2
         py0 = y + (bh - primary_h) // 2
         primary = _rect(px0, py0, primary_w, primary_h)
         # Horizontal protrusions limited by configured range
         stub_h = max(min_part, int(primary_h * float(rng.uniform(params.z_stub_height_low, params.z_stub_height_high))))
         protr_max = max(2, int(params.z_protrusion_limit * primary_w))
-        stub_w_left = int(rng.integers(max(2, int(0.25 * primary_w)), protr_max + 1))
-        stub_w_right = int(rng.integers(max(2, int(0.25 * primary_w)), protr_max + 1))
-        # left stub at top-left side, extending to the left
-        lsx0 = px0 - stub_w_left
-        lsy0 = py0
-        # right stub at bottom-right side, extending to the right
-        rsx0 = px0 + primary_w
-        rsy0 = py0 + primary_h - stub_h
+        # Randomize the lower bound for stub width using params
+        z_min_lower = max(0.0, min(1.0, float(rng.uniform(params.z_stub_width_min_frac, params.z_stub_width_max_frac))))
+        lower_bound = max(2, int(z_min_lower * primary_w))
+        # Ensure valid range for random integers; if lower >= upper, clamp to upper
+        if lower_bound >= protr_max:
+            stub_w_left = protr_max
+            stub_w_right = protr_max
+        else:
+            stub_w_left = int(rng.integers(lower_bound, protr_max + 1))
+            stub_w_right = int(rng.integers(lower_bound, protr_max + 1))
+
+        # Positions for top-left and bottom-right stubs
+        lsy0 = py0  # top-left
+        rsy0 = py0 + primary_h - stub_h  # bottom-right
         p_area = primary_w * primary_h
-        left_stub = _cap_area_and_create(lsx0, lsy0, stub_w_left, stub_h, p_area)
-        right_stub = _cap_area_and_create(rsx0, rsy0, stub_w_right, stub_h, p_area)
-        rects = [primary, left_stub, right_stub]
+        max_stub_area = max(1, p_area // 2)
+
+        # Clamp heights to available vertical space
+        avail_h_left = max(1, (y + bh) - lsy0)
+        avail_h_right = max(1, (y + bh) - rsy0)
+        sh_left = min(stub_h, avail_h_left)
+        sh_right = min(stub_h, avail_h_right)
+
+        # Left stub: keep right edge flush at primary's left edge; ensure inside bbox
+        space_left = max(0, px0 - x)
+        sw_left = min(stub_w_left, space_left)
+        # Area cap while preserving bbox and flush (recompute x after shrinking width)
+        while sw_left * sh_left > max_stub_area and (sw_left > 1 or sh_left > 1):
+            if sw_left >= sh_left and sw_left > 1:
+                sw_left = max(1, int(sw_left * 0.9))
+            elif sh_left > 1:
+                sh_left = max(1, int(sh_left * 0.9))
+            else:
+                break
+        left_stub = None
+        if sw_left >= 1 and sh_left >= 1:
+            lsx0 = px0 - sw_left
+            left_stub = _rect(lsx0, lsy0, sw_left, sh_left)
+
+        # Right stub: keep left edge flush at primary's right edge; ensure inside bbox
+        space_right = max(0, (x + bw) - (px0 + primary_w))
+        sw_right = min(stub_w_right, space_right)
+        while sw_right * sh_right > max_stub_area and (sw_right > 1 or sh_right > 1):
+            if sw_right >= sh_right and sw_right > 1:
+                sw_right = max(1, int(sw_right * 0.9))
+            elif sh_right > 1:
+                sh_right = max(1, int(sh_right * 0.9))
+            else:
+                break
+        right_stub = None
+        if sw_right >= 1 and sh_right >= 1:
+            rsx0 = px0 + primary_w
+            right_stub = _rect(rsx0, rsy0, sw_right, sh_right)
+
+        rects = [primary]
+        if left_stub is not None:
+            rects.append(left_stub)
+        if right_stub is not None:
+            rects.append(right_stub)
+
+        # Optional 90-degree rotation with safety shift to avoid bbox clipping
+        if rng.random() < 0.5:
+            rotate_cw = rng.random() < 0.5
+            rotated: list[Rect] = []
+            for r in rects:
+                lx = r.x - x
+                ly = r.y - y
+                if rotate_cw:
+                    nx = x + (bh - (ly + r.h))
+                    ny = y + lx
+                else:
+                    nx = x + ly
+                    ny = y + (bw - (lx + r.w))
+                rotated.append(_rect(nx, ny, r.h, r.w))
+
+            # Shift-only (no scaling) with a margin to avoid clipping and gaps
+            margin = max(1, int(0.02 * min(bw, bh)))
+            min_x = min(rr.x for rr in rotated)
+            min_y = min(rr.y for rr in rotated)
+            max_xw = max(rr.x + rr.w for rr in rotated)
+            max_yh = max(rr.y + rr.h for rr in rotated)
+            dx = 0
+            dy = 0
+            if min_x < x + margin:
+                dx += (x + margin) - min_x
+            if min_y < y + margin:
+                dy += (y + margin) - min_y
+            if max_xw + dx > x + bw - margin:
+                dx -= (max_xw + dx) - (x + bw - margin)
+            if max_yh + dy > y + bh - margin:
+                dy -= (max_yh + dy) - (y + bh - margin)
+            if dx != 0 or dy != 0:
+                rotated = [_rect(rr.x + dx, rr.y + dy, rr.w, rr.h) for rr in rotated]
+            rects = rotated
+
         return rects
 
     # "O" F4 (ring of four rectangles) – keep uniform to preserve a clean hole
@@ -869,6 +988,39 @@ def gen_footprints(
             }
         
         rects = _build_footprint_rects(shp, x, y, bw, bh, rng, p.shape)
+        # Global image-margin shift: ensure all rects are at least N px from image edges
+        # without scaling; shift bbox and rects together.
+        margin_img = 5
+        if rects:
+            min_rx = min(r.x for r in rects)
+            min_ry = min(r.y for r in rects)
+            max_rxw = max(r.x + r.w for r in rects)
+            max_ryh = max(r.y + r.h for r in rects)
+            dx_img = 0
+            dy_img = 0
+            if min_rx < margin_img:
+                dx_img += (margin_img - min_rx)
+            if min_ry < margin_img:
+                dy_img += (margin_img - min_ry)
+            if max_rxw + dx_img > w - margin_img:
+                dx_img -= (max_rxw + dx_img) - (w - margin_img)
+            if max_ryh + dy_img > h - margin_img:
+                dy_img -= (max_ryh + dy_img) - (h - margin_img)
+            if dx_img != 0 or dy_img != 0:
+                # Apply clamped shift to bbox and rects
+                new_x = max(0, min(w - bw, x + dx_img))
+                new_y = max(0, min(h - bh, y + dy_img))
+                dx_applied = new_x - x
+                dy_applied = new_y - y
+                if dx_applied != 0 or dy_applied != 0:
+                    rects = [_rect(r.x + dx_applied, r.y + dy_applied, r.w, r.h) for r in rects]
+                    x = new_x
+                    y = new_y
+                    # Keep debug bbox in sync with applied global shift to avoid
+                    # apparent clipping in debug_info.json
+                    if debug_mode:
+                        debug_data["bbox"]["x"] = x
+                        debug_data["bbox"]["y"] = y
         # If any rect carries a color, render an RGB debug canvas; otherwise grayscale
         has_color = any(isinstance(r, (tuple, list)) and len(r) == 2 for r in rects)
         if has_color:
@@ -901,6 +1053,203 @@ def gen_footprints(
         if i < preview_count:
             previews.append(canvas.copy())
         
+        # Global arbitrary rotation (small degrees) or 90-degree fallback
+        if rng.random() < max(p.rotate_prob, p.rotate_90_prob):
+            if p.rotate_prob > 0 and rng.random() < p.rotate_prob / max(p.rotate_prob, p.rotate_90_prob):
+                # Small arbitrary rotation with adaptive angle to avoid clipping; shift-only, no scaling
+                H, W = canvas.shape[:2]
+                rot_margin = 6
+                # Compute current foreground ROI
+                gray0 = canvas if canvas.ndim == 2 else cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+                ys0, xs0 = np.where(gray0 > 0)
+                if len(xs0) > 0:
+                    roi_w = int(xs0.max() - xs0.min() + 1)
+                    roi_h = int(ys0.max() - ys0.min() + 1)
+                else:
+                    roi_w, roi_h = 0, 0
+                angle = float(rng.uniform(-abs(p.rotate_max_deg), abs(p.rotate_max_deg)))
+                # Helper to test if rotated ROI fits in frame with margin
+                def _fits(a_deg: float) -> bool:
+                    a = abs(a_deg) * math.pi / 180.0
+                    rw = roi_w * abs(math.cos(a)) + roi_h * abs(math.sin(a))
+                    rh = roi_h * abs(math.cos(a)) + roi_w * abs(math.sin(a))
+                    return (rw <= (W - 2 * rot_margin) + 1e-6) and (rh <= (H - 2 * rot_margin) + 1e-6)
+                # Shrink angle until it fits (or becomes negligible)
+                tries = 0
+                while tries < 12 and not _fits(angle):
+                    angle *= 0.7
+                    tries += 1
+                # Rotate with symmetric padding to guarantee no pre-crop clipping
+                rad = abs(angle) * math.pi / 180.0
+                req_w = int(abs(W * math.cos(rad)) + abs(H * math.sin(rad)) + 0.5)
+                req_h = int(abs(W * math.sin(rad)) + abs(H * math.cos(rad)) + 0.5)
+                pad_x = max(0, (req_w - W) // 2 + rot_margin)
+                pad_y = max(0, (req_h - H) // 2 + rot_margin)
+                if canvas.ndim == 2:
+                    padded = np.zeros((H + 2 * pad_y, W + 2 * pad_x), dtype=canvas.dtype)
+                else:
+                    padded = np.zeros((H + 2 * pad_y, W + 2 * pad_x, canvas.shape[2]), dtype=canvas.dtype)
+                padded[pad_y:pad_y + H, pad_x:pad_x + W] = canvas
+                pH, pW = padded.shape[:2]
+                M = cv2.getRotationMatrix2D((pW / 2.0, pH / 2.0), angle, 1.0)
+                border_value = 0 if padded.ndim == 2 else (0, 0, 0)
+                rotated = cv2.warpAffine(padded, M, (pW, pH), flags=cv2.INTER_NEAREST, borderValue=border_value)
+                # Margin-aware crop back to (H, W)
+                gray_rot = rotated if rotated.ndim == 2 else cv2.cvtColor(rotated, cv2.COLOR_BGR2GRAY)
+                ys_r, xs_r = np.where(gray_rot > 0)
+                if len(xs_r) > 0:
+                    minx_r, maxx_r = int(xs_r.min()), int(xs_r.max())
+                    miny_r, maxy_r = int(ys_r.min()), int(ys_r.max())
+                    # If rotated ROI is too large for the target frame plus margin, scale it down minimally
+                    roi_w = max(1, maxx_r - minx_r + 1)
+                    roi_h = max(1, maxy_r - miny_r + 1)
+                    s_need = min(1.0, (W - 2 * rot_margin) / roi_w, (H - 2 * rot_margin) / roi_h)
+                    if s_need < 1.0:
+                        s = max(0.6, s_need * 0.99)
+                        S = np.float32([[s, 0, (1 - s) * (pW / 2.0)], [0, s, (1 - s) * (pH / 2.0)]])
+                        rotated = cv2.warpAffine(rotated, S, (pW, pH), flags=cv2.INTER_NEAREST, borderValue=border_value)
+                        gray_rot = rotated if rotated.ndim == 2 else cv2.cvtColor(rotated, cv2.COLOR_BGR2GRAY)
+                        ys_r, xs_r = np.where(gray_rot > 0)
+                        minx_r, maxx_r = int(xs_r.min()), int(xs_r.max())
+                        miny_r, maxy_r = int(ys_r.min()), int(ys_r.max())
+                    # Initial crop centered on rotated ROI
+                    cx_r = (minx_r + maxx_r) // 2
+                    cy_r = (miny_r + maxy_r) // 2
+                    x0 = int(max(0, min(pW - W, cx_r - W // 2)))
+                    y0 = int(max(0, min(pH - H, cy_r - H // 2)))
+                    # Compute actual margins and adjust with a feasible target (never clip FG)
+                    left_m = max(0, minx_r - x0)
+                    right_m = max(0, (x0 + W - 1) - maxx_r)
+                    top_m = max(0, miny_r - y0)
+                    bot_m = max(0, (y0 + H - 1) - maxy_r)
+                    # Choose the largest target margin achievable without clipping
+                    mx = min(rot_margin, int((left_m + right_m) // 2))
+                    my = min(rot_margin, int((top_m + bot_m) // 2))
+                    # Find dx in feasible interval [mx - right_m, left_m - mx]
+                    lbx = mx - right_m
+                    ubx = left_m - mx
+                    if lbx <= ubx:
+                        dx = 0
+                        if dx < lbx: dx = lbx
+                        if dx > ubx: dx = ubx
+                        x0 = int(max(0, min(pW - W, x0 + dx)))
+                    # Similarly for y
+                    lby = my - bot_m
+                    uby = top_m - my
+                    if lby <= uby:
+                        dy = 0
+                        if dy < lby: dy = lby
+                        if dy > uby: dy = uby
+                        y0 = int(max(0, min(pH - H, y0 + dy)))
+                    canvas = rotated[y0:y0 + H, x0:x0 + W].copy()
+                else:
+                    canvas = rotated[(pH - H)//2:(pH - H)//2 + H, (pW - W)//2:(pW - W)//2 + W].copy()
+                # Post-rotation: scale-to-fit if necessary (minimal), then shift-only to enforce margin
+                gray = canvas if canvas.ndim == 2 else cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+                ys, xs = np.where(gray > 0)
+                if len(xs) > 0:
+                    minx, maxx = int(xs.min()), int(xs.max())
+                    miny, maxy = int(ys.min()), int(ys.max())
+                    roi_w = max(1, maxx - minx + 1)
+                    roi_h = max(1, maxy - miny + 1)
+                    avail_w = max(1, W - 2 * rot_margin)
+                    avail_h = max(1, H - 2 * rot_margin)
+                    s_req = min(1.0, min(avail_w / roi_w, avail_h / roi_h))
+                    if s_req < 1.0:
+                        s = max(0.6, s_req * 0.98)  # keep some margin, avoid over-shrinking
+                        S = np.float32([[s, 0, (1 - s) * (W / 2.0)], [0, s, (1 - s) * (H / 2.0)]])
+                        canvas = cv2.warpAffine(canvas, S, (W, H), flags=cv2.INTER_NEAREST, borderValue=border_value)
+                        gray = canvas if canvas.ndim == 2 else cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+                        ys, xs = np.where(gray > 0)
+                        if len(xs) > 0:
+                            minx, maxx = int(xs.min()), int(xs.max())
+                            miny, maxy = int(ys.min()), int(ys.max())
+                    dx = 0
+                    dy = 0
+                    if minx < rot_margin:
+                        dx += (rot_margin - minx)
+                    if miny < rot_margin:
+                        dy += (rot_margin - miny)
+                    if maxx + dx > W - 1 - rot_margin:
+                        dx -= (maxx + dx) - (W - 1 - rot_margin)
+                    if maxy + dy > H - 1 - rot_margin:
+                        dy -= (maxy + dy) - (H - 1 - rot_margin)
+                    if dx != 0 or dy != 0:
+                        T = np.float32([[1, 0, dx], [0, 1, dy]])
+                        canvas = cv2.warpAffine(canvas, T, (W, H), flags=cv2.INTER_NEAREST, borderValue=border_value)
+            else:
+                # 90/180/270 degrees (backward-compat option)
+                k = int(rng.integers(1, 4))
+                canvas = np.rot90(canvas, k, axes=(0, 1)).copy()
+        # Boundary-only occlusion/addition noise mask
+        if rng.random() < p.boundary_noise_prob:
+            # Construct boundary band mask using morphological gradient
+            band = max(1, int(p.boundary_band_px))
+            kernel = np.ones((band, band), np.uint8)
+            if canvas.ndim == 3:
+                gray = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+            else:
+                gray = canvas
+            # Binary foreground mask
+            fg = (gray > 0).astype(np.uint8) * 255
+            # Edge band: XOR of dilated and eroded (morphological gradient like), but thick
+            dil = cv2.dilate(fg, kernel, iterations=1)
+            ero = cv2.erode(fg, kernel, iterations=1)
+            boundary = cv2.bitwise_xor(dil, ero)
+            # Random blob toggles sampled along the boundary (split add/remove)
+            ys, xs = np.where(boundary > 0)
+            if len(xs) > 0:
+                sample_n = max(1, int(len(xs) * float(p.boundary_noise_density)))
+                sel = rng.choice(len(xs), size=sample_n, replace=False)
+                # Split into add and remove sets
+                add_count = int(round(sample_n * float(p.boundary_add_frac)))
+                sel_add = set(sel[:add_count])
+                added_pixels_total = 0
+                removed_pixels_total = 0
+                # Apply filled circles with different radius per blob within configured bounds
+                for idx in np.atleast_1d(sel):
+                    cx = int(xs[idx])
+                    cy = int(ys[idx])
+                    rad = int(rng.integers(max(1, p.boundary_blob_radius_min), max(p.boundary_blob_radius_min+1, p.boundary_blob_radius_max+1)))
+                    # Determine if this blob is an addition (outside -> inside) or removal (inside -> outside)
+                    add_mode = (idx in sel_add)
+                    # Build local mask circle
+                    circ = np.zeros_like(fg)
+                    cv2.circle(circ, (cx, cy), rad, color=255, thickness=-1)
+                    # Constrain to boundary band to avoid far interior/exterior edits
+                    circ = cv2.bitwise_and(circ, boundary)
+                    if add_mode:
+                        # Addition: set pixels ON where currently OFF within the circle
+                        off_mask = cv2.bitwise_and(cv2.bitwise_not(fg), circ)
+                        added_pixels_total += int(cv2.countNonZero(off_mask))
+                        fg = cv2.bitwise_or(fg, off_mask)
+                    else:
+                        # Removal: set pixels OFF where currently ON within the circle
+                        on_mask = cv2.bitwise_and(fg, circ)
+                        removed_pixels_total += int(cv2.countNonZero(on_mask))
+                        fg = cv2.bitwise_and(fg, cv2.bitwise_not(on_mask))
+                # Write back to canvas
+                if canvas.ndim == 2:
+                    canvas = fg
+                else:
+                    canvas[:, :, 0] = fg
+                    canvas[:, :, 1] = fg
+                    canvas[:, :, 2] = fg
+                # Debug counters
+                if debug_mode:
+                    debug_data.setdefault("boundary_stats", {})
+                    debug_data["boundary_stats"].update({
+                        "applied": True,
+                        "added_pixels": int(added_pixels_total),
+                        "removed_pixels": int(removed_pixels_total),
+                        "num_blobs": int(sample_n),
+                        "add_frac": float(p.boundary_add_frac),
+                        "band_px": int(band)
+                    })
+            elif debug_mode:
+                debug_data.setdefault("boundary_stats", {})
+                debug_data["boundary_stats"].update({"applied": True, "num_blobs": 0})
+
         # Save image
         img_filename = f"{shp}_{i:06d}.png"
         cv2.imwrite(os.path.join(out_dir, img_filename), canvas)
@@ -999,6 +1348,15 @@ if __name__ == "__main__":
     ap.add_argument("--occl_prob", type=float, default=None)
     ap.add_argument("--morph_prob", type=float, default=None)
     ap.add_argument("--translate_frac", type=float, default=None)
+    ap.add_argument("--rotate_prob", type=float, default=None)
+    ap.add_argument("--rotate_max_deg", type=float, default=None)
+    ap.add_argument("--rotate_90_prob", type=float, default=None)
+    ap.add_argument("--boundary_noise_prob", type=float, default=None)
+    ap.add_argument("--boundary_noise_density", type=float, default=None)
+    ap.add_argument("--boundary_band_px", type=int, default=None)
+    ap.add_argument("--boundary_blob_radius_min", type=int, default=None)
+    ap.add_argument("--boundary_blob_radius_max", type=int, default=None)
+    ap.add_argument("--boundary_add_frac", type=float, default=None)
     # Shape geometry overrides
     ap.add_argument("--min_part_frac", type=float, default=None)
     ap.add_argument("--primary_size_low", type=float, default=None)
@@ -1017,6 +1375,8 @@ if __name__ == "__main__":
     ap.add_argument("--z_stub_height_low", type=float, default=None)
     ap.add_argument("--z_stub_height_high", type=float, default=None)
     ap.add_argument("--z_protrusion_limit", type=float, default=None)
+    ap.add_argument("--z_stub_width_min_frac", type=float, default=None)
+    ap.add_argument("--z_stub_width_max_frac", type=float, default=None)
     ap.add_argument("--o_ring_thickness_low", type=float, default=None)
     ap.add_argument("--o_ring_thickness_high", type=float, default=None)
     # Quality-of-life helpers
@@ -1044,6 +1404,24 @@ if __name__ == "__main__":
             p.morph_prob = float(args.morph_prob)
         if args.translate_frac is not None:
             p.translate_frac = float(args.translate_frac)
+        if args.rotate_prob is not None:
+            p.rotate_prob = float(args.rotate_prob)
+        if args.rotate_max_deg is not None:
+            p.rotate_max_deg = float(args.rotate_max_deg)
+        if args.rotate_90_prob is not None:
+            p.rotate_90_prob = float(args.rotate_90_prob)
+        if args.boundary_noise_prob is not None:
+            p.boundary_noise_prob = float(args.boundary_noise_prob)
+        if args.boundary_noise_density is not None:
+            p.boundary_noise_density = float(args.boundary_noise_density)
+        if args.boundary_band_px is not None:
+            p.boundary_band_px = int(args.boundary_band_px)
+        if args.boundary_blob_radius_min is not None:
+            p.boundary_blob_radius_min = int(args.boundary_blob_radius_min)
+        if args.boundary_blob_radius_max is not None:
+            p.boundary_blob_radius_max = int(args.boundary_blob_radius_max)
+        if args.boundary_add_frac is not None:
+            p.boundary_add_frac = float(args.boundary_add_frac)
         # Nested shape overrides
         shape_p = p.shape
         if args.min_part_frac is not None:
@@ -1080,6 +1458,10 @@ if __name__ == "__main__":
             shape_p.z_stub_height_high = float(args.z_stub_height_high)
         if args.z_protrusion_limit is not None:
             shape_p.z_protrusion_limit = float(args.z_protrusion_limit)
+        if args.z_stub_width_min_frac is not None:
+            shape_p.z_stub_width_min_frac = float(args.z_stub_width_min_frac)
+        if args.z_stub_width_max_frac is not None:
+            shape_p.z_stub_width_max_frac = float(args.z_stub_width_max_frac)
         if args.o_ring_thickness_low is not None:
             shape_p.o_ring_thickness_low = float(args.o_ring_thickness_low)
         if args.o_ring_thickness_high is not None:

@@ -1,0 +1,2558 @@
+[
+  {
+    "image_id": 0,
+    "shape": "I",
+    "bbox": {
+      "x": 9,
+      "y": 10,
+      "w": 107,
+      "h": 103
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 300,
+      "removed_pixels": 396,
+      "num_blobs": 63,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000000.png",
+    "rects": [
+      [
+        9,
+        10,
+        107,
+        103
+      ]
+    ]
+  },
+  {
+    "image_id": 1,
+    "shape": "Z",
+    "bbox": {
+      "x": 12,
+      "y": 16,
+      "w": 84,
+      "h": 110
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 236,
+      "removed_pixels": 336,
+      "num_blobs": 50,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000001.png",
+    "rects": [
+      [
+        11,
+        36,
+        84,
+        46
+      ],
+      [
+        63,
+        17,
+        32,
+        19
+      ],
+      [
+        11,
+        82,
+        32,
+        19
+      ]
+    ]
+  },
+  {
+    "image_id": 2,
+    "shape": "Z",
+    "bbox": {
+      "x": 28,
+      "y": 4,
+      "w": 98,
+      "h": 97
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 269,
+      "removed_pixels": 297,
+      "num_blobs": 47,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000002.png",
+    "rects": [
+      [
+        54,
+        16,
+        45,
+        72
+      ],
+      [
+        33,
+        16,
+        21,
+        28
+      ],
+      [
+        99,
+        60,
+        21,
+        28
+      ]
+    ]
+  },
+  {
+    "image_id": 3,
+    "shape": "L",
+    "bbox": {
+      "x": 5,
+      "y": 5,
+      "w": 90,
+      "h": 91
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 323,
+      "removed_pixels": 331,
+      "num_blobs": 54,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000003.png",
+    "rects": [
+      [
+        5,
+        5,
+        90,
+        65
+      ],
+      [
+        38,
+        70,
+        57,
+        26
+      ]
+    ]
+  },
+  {
+    "image_id": 4,
+    "shape": "T",
+    "bbox": {
+      "x": 12,
+      "y": 6,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 232,
+      "removed_pixels": 345,
+      "num_blobs": 56,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000004.png",
+    "rects": [
+      [
+        42,
+        21,
+        55,
+        85
+      ],
+      [
+        18,
+        62,
+        103,
+        44
+      ]
+    ]
+  },
+  {
+    "image_id": 5,
+    "shape": "L",
+    "bbox": {
+      "x": 5,
+      "y": 5,
+      "w": 106,
+      "h": 101
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 327,
+      "removed_pixels": 370,
+      "num_blobs": 62,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000005.png",
+    "rects": [
+      [
+        5,
+        5,
+        106,
+        72
+      ],
+      [
+        50,
+        77,
+        61,
+        29
+      ]
+    ]
+  },
+  {
+    "image_id": 6,
+    "shape": "O",
+    "bbox": {
+      "x": 32,
+      "y": 8,
+      "w": 90,
+      "h": 92
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 342,
+      "removed_pixels": 402,
+      "num_blobs": 68,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000006.png",
+    "rects": [
+      [
+        32,
+        8,
+        90,
+        34
+      ],
+      [
+        32,
+        66,
+        90,
+        34
+      ],
+      [
+        32,
+        42,
+        34,
+        24
+      ],
+      [
+        88,
+        42,
+        34,
+        24
+      ]
+    ]
+  },
+  {
+    "image_id": 7,
+    "shape": "L",
+    "bbox": {
+      "x": 29,
+      "y": 11,
+      "w": 93,
+      "h": 99
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 238,
+      "removed_pixels": 298,
+      "num_blobs": 54,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000007.png",
+    "rects": [
+      [
+        29,
+        11,
+        93,
+        52
+      ],
+      [
+        29,
+        63,
+        43,
+        36
+      ]
+    ]
+  },
+  {
+    "image_id": 8,
+    "shape": "O",
+    "bbox": {
+      "x": 5,
+      "y": 22,
+      "w": 92,
+      "h": 101
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 437,
+      "removed_pixels": 523,
+      "num_blobs": 75,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000008.png",
+    "rects": [
+      [
+        5,
+        22,
+        92,
+        34
+      ],
+      [
+        5,
+        89,
+        92,
+        34
+      ],
+      [
+        5,
+        56,
+        34,
+        33
+      ],
+      [
+        63,
+        56,
+        34,
+        33
+      ]
+    ]
+  },
+  {
+    "image_id": 9,
+    "shape": "I",
+    "bbox": {
+      "x": 10,
+      "y": 25,
+      "w": 104,
+      "h": 93
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 321,
+      "removed_pixels": 432,
+      "num_blobs": 59,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000009.png",
+    "rects": [
+      [
+        10,
+        25,
+        104,
+        93
+      ]
+    ]
+  },
+  {
+    "image_id": 10,
+    "shape": "T",
+    "bbox": {
+      "x": 10,
+      "y": 9,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 248,
+      "removed_pixels": 318,
+      "num_blobs": 57,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000010.png",
+    "rects": [
+      [
+        36,
+        26,
+        62,
+        80
+      ],
+      [
+        12,
+        64,
+        111,
+        42
+      ]
+    ]
+  },
+  {
+    "image_id": 11,
+    "shape": "Z",
+    "bbox": {
+      "x": 34,
+      "y": 20,
+      "w": 84,
+      "h": 88
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 165,
+      "removed_pixels": 233,
+      "num_blobs": 40,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000011.png",
+    "rects": [
+      [
+        59,
+        29,
+        33,
+        70
+      ],
+      [
+        43,
+        29,
+        16,
+        28
+      ],
+      [
+        92,
+        71,
+        16,
+        28
+      ]
+    ]
+  },
+  {
+    "image_id": 12,
+    "shape": "U",
+    "bbox": {
+      "x": 24,
+      "y": 37,
+      "w": 97,
+      "h": 86
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 299,
+      "removed_pixels": 350,
+      "num_blobs": 52,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "U_000012.png",
+    "rects": [
+      [
+        25,
+        25,
+        49,
+        97
+      ],
+      [
+        74,
+        83,
+        14,
+        39
+      ],
+      [
+        74,
+        25,
+        14,
+        39
+      ]
+    ]
+  },
+  {
+    "image_id": 13,
+    "shape": "O",
+    "bbox": {
+      "x": 13,
+      "y": 5,
+      "w": 94,
+      "h": 109
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 414,
+      "removed_pixels": 572,
+      "num_blobs": 77,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000013.png",
+    "rects": [
+      [
+        13,
+        5,
+        94,
+        37
+      ],
+      [
+        13,
+        77,
+        94,
+        37
+      ],
+      [
+        13,
+        42,
+        37,
+        35
+      ],
+      [
+        70,
+        42,
+        37,
+        35
+      ]
+    ]
+  },
+  {
+    "image_id": 14,
+    "shape": "L",
+    "bbox": {
+      "x": 12,
+      "y": 6,
+      "w": 111,
+      "h": 106
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 328,
+      "removed_pixels": 436,
+      "num_blobs": 65,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000014.png",
+    "rects": [
+      [
+        12,
+        6,
+        88,
+        106
+      ],
+      [
+        100,
+        36,
+        23,
+        76
+      ]
+    ]
+  },
+  {
+    "image_id": 15,
+    "shape": "I",
+    "bbox": {
+      "x": 19,
+      "y": 27,
+      "w": 84,
+      "h": 93
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 265,
+      "removed_pixels": 314,
+      "num_blobs": 53,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000015.png",
+    "rects": [
+      [
+        19,
+        27,
+        84,
+        93
+      ]
+    ]
+  },
+  {
+    "image_id": 16,
+    "shape": "I",
+    "bbox": {
+      "x": 11,
+      "y": 13,
+      "w": 85,
+      "h": 110
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 242,
+      "removed_pixels": 277,
+      "num_blobs": 58,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000016.png",
+    "rects": [
+      [
+        11,
+        13,
+        85,
+        110
+      ]
+    ]
+  },
+  {
+    "image_id": 17,
+    "shape": "Z",
+    "bbox": {
+      "x": 40,
+      "y": 3,
+      "w": 83,
+      "h": 89
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 219,
+      "removed_pixels": 301,
+      "num_blobs": 40,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000017.png",
+    "rects": [
+      [
+        53,
+        26,
+        63,
+        36
+      ],
+      [
+        89,
+        8,
+        27,
+        18
+      ],
+      [
+        53,
+        62,
+        27,
+        18
+      ]
+    ]
+  },
+  {
+    "image_id": 18,
+    "shape": "T",
+    "bbox": {
+      "x": 4,
+      "y": 7,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 258,
+      "removed_pixels": 283,
+      "num_blobs": 51,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000018.png",
+    "rects": [
+      [
+        35,
+        22,
+        53,
+        84
+      ],
+      [
+        17,
+        22,
+        89,
+        46
+      ]
+    ]
+  },
+  {
+    "image_id": 19,
+    "shape": "T",
+    "bbox": {
+      "x": 7,
+      "y": 2,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 324,
+      "removed_pixels": 393,
+      "num_blobs": 61,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000019.png",
+    "rects": [
+      [
+        7,
+        34,
+        115,
+        51
+      ],
+      [
+        59,
+        14,
+        63,
+        91
+      ]
+    ]
+  },
+  {
+    "image_id": 20,
+    "shape": "I",
+    "bbox": {
+      "x": 5,
+      "y": 34,
+      "w": 110,
+      "h": 89
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 280,
+      "removed_pixels": 352,
+      "num_blobs": 59,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000020.png",
+    "rects": [
+      [
+        5,
+        34,
+        110,
+        89
+      ]
+    ]
+  },
+  {
+    "image_id": 21,
+    "shape": "T",
+    "bbox": {
+      "x": 4,
+      "y": 6,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 289,
+      "removed_pixels": 374,
+      "num_blobs": 58,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000021.png",
+    "rects": [
+      [
+        30,
+        22,
+        63,
+        83
+      ],
+      [
+        5,
+        61,
+        113,
+        44
+      ]
+    ]
+  },
+  {
+    "image_id": 22,
+    "shape": "O",
+    "bbox": {
+      "x": 14,
+      "y": 9,
+      "w": 107,
+      "h": 114
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 381,
+      "removed_pixels": 530,
+      "num_blobs": 85,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000022.png",
+    "rects": [
+      [
+        14,
+        9,
+        107,
+        39
+      ],
+      [
+        14,
+        84,
+        107,
+        39
+      ],
+      [
+        14,
+        48,
+        39,
+        36
+      ],
+      [
+        82,
+        48,
+        39,
+        36
+      ]
+    ]
+  },
+  {
+    "image_id": 23,
+    "shape": "Z",
+    "bbox": {
+      "x": 5,
+      "y": 10,
+      "w": 88,
+      "h": 113
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 266,
+      "removed_pixels": 362,
+      "num_blobs": 52,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000023.png",
+    "rects": [
+      [
+        5,
+        33,
+        87,
+        44
+      ],
+      [
+        55,
+        11,
+        37,
+        22
+      ],
+      [
+        5,
+        77,
+        37,
+        22
+      ]
+    ]
+  },
+  {
+    "image_id": 24,
+    "shape": "O",
+    "bbox": {
+      "x": 5,
+      "y": 14,
+      "w": 97,
+      "h": 105
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 338,
+      "removed_pixels": 447,
+      "num_blobs": 78,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000024.png",
+    "rects": [
+      [
+        5,
+        14,
+        97,
+        36
+      ],
+      [
+        5,
+        83,
+        97,
+        36
+      ],
+      [
+        5,
+        50,
+        36,
+        33
+      ],
+      [
+        66,
+        50,
+        36,
+        33
+      ]
+    ]
+  },
+  {
+    "image_id": 25,
+    "shape": "L",
+    "bbox": {
+      "x": 5,
+      "y": 5,
+      "w": 96,
+      "h": 89
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 296,
+      "removed_pixels": 335,
+      "num_blobs": 55,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000025.png",
+    "rects": [
+      [
+        5,
+        5,
+        96,
+        68
+      ],
+      [
+        43,
+        73,
+        58,
+        21
+      ]
+    ]
+  },
+  {
+    "image_id": 26,
+    "shape": "L",
+    "bbox": {
+      "x": 13,
+      "y": 9,
+      "w": 97,
+      "h": 104
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 263,
+      "removed_pixels": 263,
+      "num_blobs": 56,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000026.png",
+    "rects": [
+      [
+        52,
+        9,
+        58,
+        104
+      ],
+      [
+        27,
+        64,
+        25,
+        49
+      ]
+    ]
+  },
+  {
+    "image_id": 27,
+    "shape": "T",
+    "bbox": {
+      "x": 6,
+      "y": 9,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 327,
+      "removed_pixels": 330,
+      "num_blobs": 60,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000027.png",
+    "rects": [
+      [
+        32,
+        23,
+        63,
+        86
+      ],
+      [
+        7,
+        62,
+        114,
+        47
+      ]
+    ]
+  },
+  {
+    "image_id": 28,
+    "shape": "T",
+    "bbox": {
+      "x": 6,
+      "y": 4,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 274,
+      "removed_pixels": 278,
+      "num_blobs": 51,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000028.png",
+    "rects": [
+      [
+        36,
+        21,
+        54,
+        81
+      ],
+      [
+        18,
+        21,
+        91,
+        45
+      ]
+    ]
+  },
+  {
+    "image_id": 29,
+    "shape": "L",
+    "bbox": {
+      "x": 28,
+      "y": 5,
+      "w": 93,
+      "h": 91
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 223,
+      "removed_pixels": 370,
+      "num_blobs": 55,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000029.png",
+    "rects": [
+      [
+        28,
+        5,
+        60,
+        91
+      ],
+      [
+        88,
+        47,
+        33,
+        49
+      ]
+    ]
+  },
+  {
+    "image_id": 30,
+    "shape": "O",
+    "bbox": {
+      "x": 23,
+      "y": 13,
+      "w": 86,
+      "h": 94
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 314,
+      "removed_pixels": 444,
+      "num_blobs": 68,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000030.png",
+    "rects": [
+      [
+        23,
+        13,
+        86,
+        33
+      ],
+      [
+        23,
+        74,
+        86,
+        33
+      ],
+      [
+        23,
+        46,
+        33,
+        28
+      ],
+      [
+        76,
+        46,
+        33,
+        28
+      ]
+    ]
+  },
+  {
+    "image_id": 31,
+    "shape": "U",
+    "bbox": {
+      "x": 15,
+      "y": 7,
+      "w": 103,
+      "h": 112
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 308,
+      "removed_pixels": 343,
+      "num_blobs": 63,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "U_000031.png",
+    "rects": [
+      [
+        17,
+        9,
+        57,
+        103
+      ],
+      [
+        74,
+        71,
+        25,
+        41
+      ],
+      [
+        74,
+        9,
+        25,
+        41
+      ]
+    ]
+  },
+  {
+    "image_id": 32,
+    "shape": "I",
+    "bbox": {
+      "x": 31,
+      "y": 5,
+      "w": 92,
+      "h": 83
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 250,
+      "removed_pixels": 313,
+      "num_blobs": 52,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000032.png",
+    "rects": [
+      [
+        31,
+        5,
+        92,
+        83
+      ]
+    ]
+  },
+  {
+    "image_id": 33,
+    "shape": "O",
+    "bbox": {
+      "x": 5,
+      "y": 17,
+      "w": 98,
+      "h": 96
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 316,
+      "removed_pixels": 419,
+      "num_blobs": 75,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000033.png",
+    "rects": [
+      [
+        5,
+        17,
+        98,
+        34
+      ],
+      [
+        5,
+        79,
+        98,
+        34
+      ],
+      [
+        5,
+        51,
+        34,
+        28
+      ],
+      [
+        69,
+        51,
+        34,
+        28
+      ]
+    ]
+  },
+  {
+    "image_id": 34,
+    "shape": "Z",
+    "bbox": {
+      "x": 5,
+      "y": 1,
+      "w": 104,
+      "h": 98
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 316,
+      "removed_pixels": 371,
+      "num_blobs": 52,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000034.png",
+    "rects": [
+      [
+        28,
+        14,
+        58,
+        71
+      ],
+      [
+        5,
+        14,
+        23,
+        25
+      ],
+      [
+        86,
+        60,
+        23,
+        25
+      ]
+    ]
+  },
+  {
+    "image_id": 35,
+    "shape": "I",
+    "bbox": {
+      "x": 10,
+      "y": 27,
+      "w": 106,
+      "h": 86
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 281,
+      "removed_pixels": 369,
+      "num_blobs": 57,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000035.png",
+    "rects": [
+      [
+        10,
+        27,
+        106,
+        86
+      ]
+    ]
+  },
+  {
+    "image_id": 36,
+    "shape": "U",
+    "bbox": {
+      "x": 9,
+      "y": 14,
+      "w": 88,
+      "h": 96
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 309,
+      "removed_pixels": 362,
+      "num_blobs": 55,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "U_000036.png",
+    "rects": [
+      [
+        9,
+        14,
+        88,
+        53
+      ],
+      [
+        9,
+        67,
+        35,
+        22
+      ],
+      [
+        62,
+        67,
+        35,
+        22
+      ]
+    ]
+  },
+  {
+    "image_id": 37,
+    "shape": "U",
+    "bbox": {
+      "x": 10,
+      "y": 28,
+      "w": 105,
+      "h": 83
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 327,
+      "removed_pixels": 469,
+      "num_blobs": 63,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "U_000037.png",
+    "rects": [
+      [
+        33,
+        5,
+        61,
+        105
+      ],
+      [
+        11,
+        5,
+        22,
+        42
+      ],
+      [
+        11,
+        68,
+        22,
+        42
+      ]
+    ]
+  },
+  {
+    "image_id": 38,
+    "shape": "U",
+    "bbox": {
+      "x": 11,
+      "y": 7,
+      "w": 90,
+      "h": 94
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 348,
+      "removed_pixels": 365,
+      "num_blobs": 61,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "U_000038.png",
+    "rects": [
+      [
+        11,
+        7,
+        90,
+        64
+      ],
+      [
+        11,
+        71,
+        34,
+        26
+      ],
+      [
+        67,
+        71,
+        34,
+        26
+      ]
+    ]
+  },
+  {
+    "image_id": 39,
+    "shape": "L",
+    "bbox": {
+      "x": 10,
+      "y": 40,
+      "w": 106,
+      "h": 83
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 263,
+      "removed_pixels": 294,
+      "num_blobs": 52,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000039.png",
+    "rects": [
+      [
+        10,
+        40,
+        55,
+        83
+      ],
+      [
+        65,
+        77,
+        36,
+        46
+      ]
+    ]
+  },
+  {
+    "image_id": 40,
+    "shape": "U",
+    "bbox": {
+      "x": 15,
+      "y": 14,
+      "w": 91,
+      "h": 104
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 335,
+      "removed_pixels": 362,
+      "num_blobs": 63,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "U_000040.png",
+    "rects": [
+      [
+        15,
+        14,
+        91,
+        66
+      ],
+      [
+        15,
+        80,
+        36,
+        27
+      ],
+      [
+        70,
+        80,
+        36,
+        27
+      ]
+    ]
+  },
+  {
+    "image_id": 41,
+    "shape": "L",
+    "bbox": {
+      "x": 5,
+      "y": 17,
+      "w": 106,
+      "h": 85
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 221,
+      "removed_pixels": 341,
+      "num_blobs": 57,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000041.png",
+    "rects": [
+      [
+        5,
+        17,
+        65,
+        85
+      ],
+      [
+        70,
+        45,
+        41,
+        57
+      ]
+    ]
+  },
+  {
+    "image_id": 42,
+    "shape": "O",
+    "bbox": {
+      "x": 5,
+      "y": 21,
+      "w": 104,
+      "h": 93
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 361,
+      "removed_pixels": 493,
+      "num_blobs": 78,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000042.png",
+    "rects": [
+      [
+        5,
+        21,
+        104,
+        33
+      ],
+      [
+        5,
+        81,
+        104,
+        33
+      ],
+      [
+        5,
+        54,
+        33,
+        27
+      ],
+      [
+        76,
+        54,
+        33,
+        27
+      ]
+    ]
+  },
+  {
+    "image_id": 43,
+    "shape": "Z",
+    "bbox": {
+      "x": 5,
+      "y": 7,
+      "w": 90,
+      "h": 86
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 248,
+      "removed_pixels": 285,
+      "num_blobs": 46,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000043.png",
+    "rects": [
+      [
+        23,
+        17,
+        53,
+        65
+      ],
+      [
+        5,
+        17,
+        18,
+        27
+      ],
+      [
+        76,
+        55,
+        19,
+        27
+      ]
+    ]
+  },
+  {
+    "image_id": 44,
+    "shape": "L",
+    "bbox": {
+      "x": 12,
+      "y": 12,
+      "w": 92,
+      "h": 103
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 273,
+      "removed_pixels": 279,
+      "num_blobs": 54,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000044.png",
+    "rects": [
+      [
+        12,
+        12,
+        92,
+        53
+      ],
+      [
+        12,
+        65,
+        43,
+        35
+      ]
+    ]
+  },
+  {
+    "image_id": 45,
+    "shape": "O",
+    "bbox": {
+      "x": 5,
+      "y": 5,
+      "w": 98,
+      "h": 87
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 346,
+      "removed_pixels": 464,
+      "num_blobs": 70,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000045.png",
+    "rects": [
+      [
+        5,
+        5,
+        98,
+        34
+      ],
+      [
+        5,
+        58,
+        98,
+        34
+      ],
+      [
+        5,
+        39,
+        34,
+        19
+      ],
+      [
+        69,
+        39,
+        34,
+        19
+      ]
+    ]
+  },
+  {
+    "image_id": 46,
+    "shape": "I",
+    "bbox": {
+      "x": 31,
+      "y": 19,
+      "w": 92,
+      "h": 87
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 272,
+      "removed_pixels": 309,
+      "num_blobs": 53,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000046.png",
+    "rects": [
+      [
+        31,
+        19,
+        92,
+        87
+      ]
+    ]
+  },
+  {
+    "image_id": 47,
+    "shape": "I",
+    "bbox": {
+      "x": 5,
+      "y": 5,
+      "w": 111,
+      "h": 87
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 280,
+      "removed_pixels": 271,
+      "num_blobs": 59,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000047.png",
+    "rects": [
+      [
+        5,
+        5,
+        111,
+        87
+      ]
+    ]
+  },
+  {
+    "image_id": 48,
+    "shape": "T",
+    "bbox": {
+      "x": 8,
+      "y": 11,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 328,
+      "removed_pixels": 387,
+      "num_blobs": 65,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000048.png",
+    "rects": [
+      [
+        8,
+        37,
+        115,
+        63
+      ],
+      [
+        8,
+        18,
+        64,
+        102
+      ]
+    ]
+  },
+  {
+    "image_id": 49,
+    "shape": "L",
+    "bbox": {
+      "x": 39,
+      "y": 17,
+      "w": 84,
+      "h": 98
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 284,
+      "removed_pixels": 332,
+      "num_blobs": 54,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000049.png",
+    "rects": [
+      [
+        39,
+        17,
+        53,
+        98
+      ],
+      [
+        92,
+        70,
+        31,
+        45
+      ]
+    ]
+  },
+  {
+    "image_id": 50,
+    "shape": "Z",
+    "bbox": {
+      "x": 8,
+      "y": 15,
+      "w": 95,
+      "h": 90
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 273,
+      "removed_pixels": 273,
+      "num_blobs": 47,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000050.png",
+    "rects": [
+      [
+        19,
+        37,
+        68,
+        45
+      ],
+      [
+        61,
+        15,
+        26,
+        22
+      ],
+      [
+        19,
+        82,
+        26,
+        22
+      ]
+    ]
+  },
+  {
+    "image_id": 51,
+    "shape": "L",
+    "bbox": {
+      "x": 5,
+      "y": 17,
+      "w": 101,
+      "h": 105
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 344,
+      "removed_pixels": 399,
+      "num_blobs": 61,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000051.png",
+    "rects": [
+      [
+        5,
+        17,
+        101,
+        73
+      ],
+      [
+        41,
+        90,
+        65,
+        32
+      ]
+    ]
+  },
+  {
+    "image_id": 52,
+    "shape": "I",
+    "bbox": {
+      "x": 26,
+      "y": 24,
+      "w": 88,
+      "h": 97
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 263,
+      "removed_pixels": 257,
+      "num_blobs": 55,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000052.png",
+    "rects": [
+      [
+        26,
+        24,
+        88,
+        97
+      ]
+    ]
+  },
+  {
+    "image_id": 53,
+    "shape": "O",
+    "bbox": {
+      "x": 5,
+      "y": 32,
+      "w": 89,
+      "h": 88
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 324,
+      "removed_pixels": 443,
+      "num_blobs": 70,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "O_000053.png",
+    "rects": [
+      [
+        5,
+        32,
+        89,
+        30
+      ],
+      [
+        5,
+        90,
+        89,
+        30
+      ],
+      [
+        5,
+        62,
+        30,
+        28
+      ],
+      [
+        64,
+        62,
+        30,
+        28
+      ]
+    ]
+  },
+  {
+    "image_id": 54,
+    "shape": "Z",
+    "bbox": {
+      "x": 1,
+      "y": 5,
+      "w": 105,
+      "h": 86
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 282,
+      "removed_pixels": 276,
+      "num_blobs": 44,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000054.png",
+    "rects": [
+      [
+        13,
+        26,
+        63,
+        44
+      ],
+      [
+        52,
+        5,
+        24,
+        21
+      ],
+      [
+        13,
+        70,
+        24,
+        20
+      ]
+    ]
+  },
+  {
+    "image_id": 55,
+    "shape": "L",
+    "bbox": {
+      "x": 7,
+      "y": 20,
+      "w": 100,
+      "h": 103
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 279,
+      "removed_pixels": 374,
+      "num_blobs": 60,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "L_000055.png",
+    "rects": [
+      [
+        7,
+        20,
+        60,
+        103
+      ],
+      [
+        67,
+        70,
+        40,
+        53
+      ]
+    ]
+  },
+  {
+    "image_id": 56,
+    "shape": "I",
+    "bbox": {
+      "x": 12,
+      "y": 16,
+      "w": 106,
+      "h": 107
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 292,
+      "removed_pixels": 387,
+      "num_blobs": 63,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "I_000056.png",
+    "rects": [
+      [
+        12,
+        16,
+        106,
+        107
+      ]
+    ]
+  },
+  {
+    "image_id": 57,
+    "shape": "U",
+    "bbox": {
+      "x": 31,
+      "y": 5,
+      "w": 84,
+      "h": 90
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 311,
+      "removed_pixels": 407,
+      "num_blobs": 57,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "U_000057.png",
+    "rects": [
+      [
+        31,
+        5,
+        84,
+        57
+      ],
+      [
+        31,
+        62,
+        34,
+        26
+      ],
+      [
+        81,
+        62,
+        34,
+        26
+      ]
+    ]
+  },
+  {
+    "image_id": 58,
+    "shape": "T",
+    "bbox": {
+      "x": 8,
+      "y": 5,
+      "w": 115,
+      "h": 115
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 362,
+      "removed_pixels": 442,
+      "num_blobs": 68,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "T_000058.png",
+    "rects": [
+      [
+        8,
+        31,
+        115,
+        63
+      ],
+      [
+        60,
+        6,
+        63,
+        114
+      ]
+    ]
+  },
+  {
+    "image_id": 59,
+    "shape": "Z",
+    "bbox": {
+      "x": 27,
+      "y": 24,
+      "w": 95,
+      "h": 101
+    },
+    "params": {
+      "primary_size_low": 0.55,
+      "primary_size_high": 0.85,
+      "l_stub_thickness_low": 0.8,
+      "l_stub_thickness_high": 0.9,
+      "l_protrusion_limit": 1
+    },
+    "boundary_stats": {
+      "applied": true,
+      "added_pixels": 267,
+      "removed_pixels": 287,
+      "num_blobs": 47,
+      "add_frac": 0.5,
+      "band_px": 7
+    },
+    "filename": "Z_000059.png",
+    "rects": [
+      [
+        54,
+        36,
+        41,
+        76
+      ],
+      [
+        34,
+        36,
+        20,
+        27
+      ],
+      [
+        95,
+        85,
+        20,
+        27
+      ]
+    ]
+  }
+]
