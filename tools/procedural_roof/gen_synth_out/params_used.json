@@ -1,5 +1,5 @@
 {
-  "bbox_min_side_frac": 0.5,
+  "bbox_min_side_frac": 0.65,
   "bbox_max_side_frac": 0.9,
   "occl_prob": 0.0,
   "morph_prob": 0.0,
@@ -7,7 +7,7 @@
   "seed": 42,
   "shape": {
     "min_part_frac": 0.17,
-    "primary_size_low": 0.65,
+    "primary_size_low": 0.55,
     "primary_size_high": 0.85,
     "l_stub_thickness_low": 0.8,
     "l_stub_thickness_high": 0.9,
@@ -17,8 +17,8 @@
     "t_primary_height_low": 0.7,
     "t_primary_height_high": 0.9,
     "u_leg_thickness_low": 0.35,
-    "u_leg_thickness_high": 0.55,
-    "u_leg_height_low": 0.2,
+    "u_leg_thickness_high": 0.45,
+    "u_leg_height_low": 0.3,
     "u_leg_height_high": 0.5,
     "z_stub_height_low": 0.18,
     "z_stub_height_high": 0.32,

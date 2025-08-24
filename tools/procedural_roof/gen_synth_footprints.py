@@ -29,7 +29,7 @@ class FootprintShapeParams:
     # Minimal part thickness as a fraction of the short side of bbox
     min_part_frac: float = 0.17  # ~= 1/6
     # Primary rectangle size range as fraction of bbox
-    primary_size_low: float = 0.65
+    primary_size_low: float = 0.55
     primary_size_high: float = 0.85
     # L-shape: stub thickness as fraction of primary dimension
     l_stub_thickness_low: float = 0.8
@@ -44,9 +44,9 @@ class FootprintShapeParams:
     t_primary_height_high: float = 0.90  # Primary height as fraction of bbox height
     # U-shape: leg thickness as fraction of primary height
     u_leg_thickness_low: float = 0.35
-    u_leg_thickness_high: float = 0.55
+    u_leg_thickness_high: float = 0.45
     # U-shape: leg height as fraction of primary height
-    u_leg_height_low: float = 0.20
+    u_leg_height_low: float = 0.30
     u_leg_height_high: float = 0.50
     # Z-shape: stub height as fraction of primary height
     z_stub_height_low: float = 0.18
@@ -62,7 +62,7 @@ class FootprintShapeParams:
 class FootprintGenParams:
     """Top-level generation parameters for footprint masks."""
     # BBox size range (as a fraction of image min(h, w))
-    bbox_min_side_frac: float = 0.50  # Increased from 0.35 to ensure larger shapes
+    bbox_min_side_frac: float = 0.65  # Increased from 0.35 to ensure larger shapes
     bbox_max_side_frac: float = 0.90
     # Noise / augmentation
     occl_prob: float = 0.0
@@ -679,22 +679,64 @@ def _build_footprint_rects(shape: str, x: int, y: int, bw: int, bh: int, rng: np
     if shape == "U":
         # Primary horizontal bar at top; two short vertical legs
         primary_h = max(min_part, int(min(bw, bh) * float(rng.uniform(params.primary_size_low, params.primary_size_high))))
+        # Ensure there is room for legs below the primary within the bbox to avoid clipping
+        # Reserve at least the minimum leg height (fraction of primary height)
+        max_primary_h_to_fit_low_leg = max(
+            min_part,
+            int(bh / (1.0 + float(params.u_leg_height_low) + 1e-6))
+        )
+        if primary_h > max_primary_h_to_fit_low_leg:
+            primary_h = max_primary_h_to_fit_low_leg
         primary_w = bw
         px0 = x
         py0 = y
         primary = _rect(px0, py0, primary_w, primary_h)
         # Legs: vertical protrusion limited by configured range
         leg_h = int(rng.integers(max(2, int(params.u_leg_height_low * primary_h)), max(3, int(params.u_leg_height_high * primary_h))))
-        leg_w = max(min_part, int(primary_h * float(rng.uniform(params.u_leg_thickness_low, params.u_leg_thickness_high))))
-        gap = int(max(2, bw * 0.15))
-        lx0 = x + gap
-        rx0 = x + bw - gap - leg_w
+        # Define leg width RELATIVE TO PRIMARY RECTANGLE WIDTH (not bbox)
+        raw_leg_w = int(primary_w * float(rng.uniform(params.u_leg_thickness_low, params.u_leg_thickness_high)))
+        # Ensure there is an inner gap between legs: reserve at least 20% of primary width or min_part
+        min_inner_gap = max(min_part, int(0.20 * primary_w))
+        max_leg_w = max(1, (primary_w - min_inner_gap) // 2)
+        leg_w = max(1, min(max_leg_w, max(min_part, raw_leg_w)))
+        # Place legs flush with the primary's side edges
+        # Left leg: left edge flush with primary's left edge
+        lx0 = px0
+        # Right leg: right edge flush with primary's right edge
+        rx0 = px0 + primary_w - leg_w
         ly0 = py0 + primary_h
         ry0 = py0 + primary_h
+        # Clamp leg height so legs do not extend beyond the bbox bottom
+        available_h = max(0, (y + bh) - ly0)
+        if available_h <= 0:
+            leg_h = 0
+        else:
+            leg_h = min(leg_h, available_h)
         p_area = primary_w * primary_h
         left_leg = _cap_area_and_create(lx0, ly0, leg_w, leg_h, p_area)
-        right_leg = _cap_area_and_create(rx0, ry0, leg_w, leg_h, p_area)
+        # Preserve flush on the right edge even if area capping shrinks width
+        right_leg = _cap_area_and_create(rx0, ry0, leg_w, leg_h, p_area, preserve_flush=True, primary_right_edge=px0 + primary_w)
         rects = [primary, left_leg, right_leg]
+
+        # Optional 90-degree rotation to increase variation (rotate within bbox)
+        if rng.random() < 0.5:
+            rotate_cw = rng.random() < 0.5
+            rotated: list[Rect] = []
+            for r in rects:
+                # local coords within bbox
+                lx = r.x - x
+                ly = r.y - y
+                if rotate_cw:
+                    # Clockwise: (x, y, w, h) -> (bh - (y + h), x, h, w)
+                    nx = x + (bh - (ly + r.h))
+                    ny = y + lx
+                else:
+                    # Counter-clockwise: (x, y, w, h) -> (y, bw - (x + w), h, w)
+                    nx = x + ly
+                    ny = y + (bw - (lx + r.w))
+                rotated.append(_rect(nx, ny, r.h, r.w))
+            rects = rotated
+
         return rects
 
     if shape == "Z":
