@@ -11,6 +11,8 @@ const clearImageBtn = $('#clearImage');
 const imgInfo = $('#imgInfo');
 const sendModel3dBtn = $('#sendModel3d');
 const sendInferBtn = $('#sendInfer');
+const sendMaskOnlyBtn = $('#sendMaskOnly');
+const sendSegmaskBtn = $('#sendSegmask');
 const responseEl = $('#response');
 const basemapSelect = $('#basemap');
 const captureSatBtn = $('#captureSat');
@@ -20,6 +22,7 @@ const overlayBtn = document.getElementById('overlayGeoJson');
 const overlayPlanesBtn = document.getElementById('overlayPlanes');
 const fitOverlayBtn = document.getElementById('fitOverlay');
 const clearOverlayBtn = document.getElementById('clearOverlay');
+const downloadMaskLink = document.getElementById('downloadMask');
 const autoOverlayChk = document.getElementById('autoOverlay');
 const rendererModeSel = document.getElementById('rendererMode');
 const strokeW = document.getElementById('strokeW');
@@ -187,6 +190,89 @@ async function callModel3d() {
   }
 }
 
+async function callMaskOnly() {
+  try {
+    if (!bboxWgs84) throw new Error('Draw a bbox on the map first');
+    if (!imageBase64) throw new Error('Select an image first');
+    const south = bboxWgs84[0], west = bboxWgs84[1], north = bboxWgs84[2], east = bboxWgs84[3];
+    const latC = (south + north) / 2;
+    const lonC = (west + east) / 2;
+    const metersPerDegLat = 111320;
+    const metersPerDegLon = 111320 * Math.cos(latC * Math.PI / 180);
+    const heightM = Math.abs(north - south) * metersPerDegLat;
+    const widthM = Math.abs(east - west) * Math.max(1e-6, metersPerDegLon);
+    const bboxM = Math.ceil(Math.max(widthM, heightM));
+    const body = {
+      coordinates: { latitude: latC, longitude: lonC },
+      bbox_m: Math.max(40, Math.min(120, bboxM)),
+      image_base64: imageBase64,
+      segmentation_only: true
+    };
+    const res = await fetch(getServiceUrl() + '/model3d', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const text = await res.text();
+    responseEl.textContent = text;
+    try {
+      const json = JSON.parse(text);
+      lastResponseJson = json;
+      const b64 = json?.mask;
+      if (b64 && downloadMaskLink) {
+        downloadMaskLink.href = 'data:image/png;base64,' + b64;
+        downloadMaskLink.style.display = '';
+        autoDownloadMask(b64);
+      }
+    } catch {}
+  } catch (err) {
+    responseEl.textContent = 'Error: ' + (err?.message || String(err));
+  }
+}
+
+async function callSegmask() {
+  try {
+    if (!imageBase64) throw new Error('Select an image first');
+    const body = {
+      image_base64: imageBase64
+    };
+    const res = await fetch(getServiceUrl() + '/segmask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const text = await res.text();
+    responseEl.textContent = text;
+    try {
+      const json = JSON.parse(text);
+      lastResponseJson = json;
+      // prepare download link if mask present
+      const b64 = json?.mask;
+      if (b64 && downloadMaskLink) {
+        downloadMaskLink.href = 'data:image/png;base64,' + b64;
+        downloadMaskLink.style.display = '';
+        autoDownloadMask(b64);
+      }
+    } catch {}
+  } catch (err) {
+    responseEl.textContent = 'Error: ' + (err?.message || String(err));
+  }
+}
+
+function autoDownloadMask(base64Png) {
+  try {
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href = 'data:image/png;base64,' + base64Png;
+    a.download = `mask_${ts}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (e) {
+    console.warn('Auto-download failed', e);
+  }
+}
+
 async function callInfer() {
   try {
     if (!imageBase64) throw new Error('Select an image first');
@@ -202,6 +288,16 @@ async function callInfer() {
     const res = await fetch(getServiceUrl() + '/infer', { method: 'POST', body: form });
     const text = await res.text();
     responseEl.textContent = text;
+    try {
+      const json = JSON.parse(text);
+      lastResponseJson = json;
+      const b64 = json?.mask;
+      if (b64 && downloadMaskLink) {
+        downloadMaskLink.href = 'data:image/png;base64,' + b64;
+        downloadMaskLink.style.display = '';
+        autoDownloadMask(b64);
+      }
+    } catch {}
   } catch (err) {
     responseEl.textContent = 'Error: ' + (err?.message || String(err));
   }
@@ -375,6 +471,8 @@ document.getElementById('renderFromJson')?.addEventListener('click', () => {
 
 sendModel3dBtn.addEventListener('click', callModel3d);
 sendInferBtn.addEventListener('click', callInfer);
+sendMaskOnlyBtn?.addEventListener('click', callMaskOnly);
+sendSegmaskBtn?.addEventListener('click', callSegmask);
 
 // Capture the satellite imagery within the bbox to use as the request image
 captureSatBtn.addEventListener('click', () => {

@@ -75,6 +75,8 @@
         <div class="row" style="margin-top:6px">
           <button id="sendModel3d">Send to /model3d</button>
           <button id="sendInfer">Send to /infer</button>
+          <button id="sendMaskOnly" title="Run segmentation only via /model3d">Mask only (/model3d)</button>
+          <button id="sendSegmask" title="Send only the image and get mask">Seg mask (no bbox)</button>
         </div>
       </div>
 
@@ -94,6 +96,7 @@
           <button id="overlayGeoJson">Overlay GeoJSON</button>
           <button id="fitOverlay">Fit to overlay</button>
           <button id="clearOverlay">Clear overlay</button>
+          <a id="downloadMask" class="btn" href="#" download="mask.png" style="display:none">Download mask</a>
         </div>
         <div class="row" style="margin-top:8px; gap:12px">
           <label>Renderer

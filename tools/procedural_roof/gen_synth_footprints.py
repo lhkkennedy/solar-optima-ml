@@ -32,13 +32,13 @@ class FootprintShapeParams:
     primary_size_low: float = 0.55
     primary_size_high: float = 0.85
     # L-shape: stub thickness as fraction of primary dimension
-    l_stub_thickness_low: float = 0.8
-    l_stub_thickness_high: float = 0.9
+    l_stub_thickness_low: float = 0.35
+    l_stub_thickness_high: float = 0.85
     # L-shape: protrusion limit as fraction of primary dimension
     l_protrusion_limit: float = 1
     # T-shape: cap height as fraction of primary height
-    t_cap_height_low: float = 0.50  # Increased from 0.15 to make caps more visible
-    t_cap_height_high: float = 0.60  # Increased from 0.50 to make caps more proportional
+    t_cap_height_low: float = 0.6  # Increased from 0.15 to make caps more visible
+    t_cap_height_high: float = 0.75  # Increased from 0.50 to make caps more proportional
     # T-shape: primary height as fraction of bounding box height (for vertical primary)
     t_primary_height_low: float = 0.70  # Primary height as fraction of bbox height
     t_primary_height_high: float = 0.90  # Primary height as fraction of bbox height

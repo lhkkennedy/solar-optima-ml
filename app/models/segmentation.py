@@ -65,6 +65,12 @@ class SegmentationModel:
             self.min_blob_frac = float(os.getenv("SEG_MIN_BLOB_FRAC", "0.002"))  # 0.2% of pixels
         except Exception:
             self.min_blob_frac = 0.002
+        # Debug configuration print to help diagnose env/backend issues
+        try:
+            _exists = os.path.exists(self.model_path) if self.model_path else None
+            print(f"Segmentation config: backend={self.backend}, model_path={self.model_path}, exists={_exists}, HAS_TORCH={_HAS_TORCH}, HAS_TRANSFORMERS={_HAS_TRANSFORMERS}, HAS_ONNX={_HAS_ONNX}")
+        except Exception:
+            pass
         self._load_model(self.model_path)
 
     def _load_model(self, model_path: str | None = None):

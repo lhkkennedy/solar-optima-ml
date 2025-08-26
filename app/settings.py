@@ -1,5 +1,20 @@
 import os
 from dataclasses import dataclass
+try:
+    # Ensure .env from project root is loaded even if CWD differs
+    from dotenv import load_dotenv  # type: ignore
+    _HAS_DOTENV = True
+except Exception:
+    _HAS_DOTENV = False
+
+if _HAS_DOTENV:
+    try:
+        _BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        _DOTENV_PATH = os.path.join(_BASE_DIR, ".env")
+        load_dotenv(_DOTENV_PATH)
+    except Exception:
+        # Non-fatal if dotenv isn't available or file missing
+        pass
 
 @dataclass
 class Settings:

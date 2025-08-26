@@ -47,6 +47,7 @@ def main():
     ap.add_argument("--out", default="overlay.png")
     ap.add_argument("--alpha", type=float, default=0.35)
     ap.add_argument("--color", default="255,0,0", help="Overlay RGB, e.g., 0,255,0")
+    ap.add_argument("--mask-only", action="store_true", help="Save raw mask PNG instead of overlay")
     args = ap.parse_args()
 
     data = fetch_infer(args.server, args.image)
@@ -66,6 +67,12 @@ def main():
         img = Image.open(io.BytesIO(r.content))
     else:
         img = Image.open(args.image)
+
+    if args.mask_only:
+        out_path = args.out if args.out != "overlay.png" else "mask.png"
+        mask_img.save(out_path)
+        print(f"Wrote {out_path}")
+        return
 
     color = tuple(int(c) for c in args.color.split(","))
     out = overlay_mask_on_image(img, mask_arr, color=color, alpha=args.alpha)

@@ -141,10 +141,63 @@ class Model3DRequest(BaseModel):
     image_url: str | None = None
     provider_hint: str | None = None
     return_mesh: bool = False
+    segmentation_only: bool = False
+
+
+class SegMaskRequest(BaseModel):
+    image_base64: str | None = None
+    image_url: str | None = None
+
+
+@app.post("/segmask")
+async def segmask(req: SegMaskRequest):
+    """Return segmentation mask only from a provided image (JSON input)."""
+    try:
+        if not (req.image_base64 or req.image_url):
+            raise HTTPException(status_code=400, detail="Provide image_base64 or image_url")
+        # Load image
+        if req.image_base64:
+            try:
+                img_bytes = base64.b64decode(req.image_base64)
+            except Exception:
+                raise HTTPException(status_code=400, detail="image_base64 must be valid base64")
+            img = Image.open(io.BytesIO(img_bytes))
+        else:
+            import requests as _requests
+            r = _requests.get(req.image_url, timeout=10)  # type: ignore[arg-type]
+            r.raise_for_status()
+            img = Image.open(io.BytesIO(r.content))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        # Optional: basic size check similar to /infer
+        if img.size[0] < 256 or img.size[1] < 256:
+            raise HTTPException(status_code=400, detail="Image must be at least 256x256 pixels")
+        # Run segmentation
+        seg_mask, seg_conf = segmentation_model.predict(img)
+        try:
+            mask_pil = Image.fromarray((seg_mask * 255).astype(np.uint8))
+        except Exception:
+            mask_pil = Image.fromarray(((seg_mask > 0.5).astype(np.uint8) * 255))
+        buf = io.BytesIO()
+        mask_pil.save(buf, format="PNG")
+        mask_base64 = base64.b64encode(buf.getvalue()).decode()
+        return {
+            "mask": mask_base64,
+            "confidence": float(seg_conf or 0.0),
+            "original_size": list(img.size),
+            "mask_size": list(seg_mask.shape),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"segmask failed: {str(e)}")
 
 @app.post("/model3d")
 async def model3d(req: Model3DRequest):
     try:
+        # If only segmentation output is requested, ensure an image source is provided
+        if req.segmentation_only and not (req.image_base64 or req.image_url):
+            raise HTTPException(status_code=400, detail="segmentation_only requires image_base64 or image_url")
         lat = req.coordinates.latitude
         lon = req.coordinates.longitude
         clip = ml6_dsm.locate_and_fetch(lat, lon, req.bbox_m)
@@ -162,6 +215,16 @@ async def model3d(req: Model3DRequest):
                 if img.mode != "RGB":
                     img = img.convert("RGB")
                 seg_mask, seg_conf = segmentation_model.predict(img)
+                # If caller only wants the segmentation mask, return it now
+                if req.segmentation_only:
+                    try:
+                        mask_pil_only = Image.fromarray((seg_mask * 255).astype(np.uint8))
+                    except Exception:
+                        mask_pil_only = Image.fromarray(((seg_mask > 0.5).astype(np.uint8) * 255))
+                    _buf = io.BytesIO()
+                    mask_pil_only.save(_buf, format="PNG")
+                    _mask_b64 = base64.b64encode(_buf.getvalue()).decode()
+                    return {"mask": _mask_b64, "confidence": float(seg_conf or 0.0), "mask_size": list(seg_mask.shape)}
                 mimg = Image.fromarray((seg_mask * 255).astype(np.uint8))
                 mimg = mimg.resize((ndsm.ndsm.shape[1], ndsm.ndsm.shape[0]), Image.NEAREST)
                 mask_arr = (np.array(mimg) > 127).astype(np.float32)
@@ -173,6 +236,15 @@ async def model3d(req: Model3DRequest):
                 if img.mode != "RGB":
                     img = img.convert("RGB")
                 seg_mask, seg_conf = segmentation_model.predict(img)
+                if req.segmentation_only:
+                    try:
+                        mask_pil_only = Image.fromarray((seg_mask * 255).astype(np.uint8))
+                    except Exception:
+                        mask_pil_only = Image.fromarray(((seg_mask > 0.5).astype(np.uint8) * 255))
+                    _buf = io.BytesIO()
+                    mask_pil_only.save(_buf, format="PNG")
+                    _mask_b64 = base64.b64encode(_buf.getvalue()).decode()
+                    return {"mask": _mask_b64, "confidence": float(seg_conf or 0.0), "mask_size": list(seg_mask.shape)}
                 mimg = Image.fromarray((seg_mask * 255).astype(np.uint8))
                 mimg = mimg.resize((ndsm.ndsm.shape[1], ndsm.ndsm.shape[0]), Image.NEAREST)
                 mask_arr = (np.array(mimg) > 127).astype(np.float32)
