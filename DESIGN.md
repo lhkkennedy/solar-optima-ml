@@ -64,6 +64,30 @@ SolarOptima ML micro-service provides automated solar panel assessment and quota
 - `docker-compose.test.yml`
 - `.dockerignore`
 
+### ML-6: Procedural Roof – Shape Configuration & Ridge Detection
+**Description**: Detect precise roof part arrangements (Configuration Recognizer) and estimate roof ridge topology for each building. This unlocks parameterised procedural roof models used later for 3-D synthesis and costing.
+**Sub-Tasks**:
+- **ML-6a**: *Synthetic Dataset Generator* – Script to create ≥120 k labelled edge-map images for supported roof family types (I, L, T, U, Z). Includes noise augmentation (random curve scribbles, edge dropout) and basic train/val/test split.
+- **ML-6b**: *Roof Family Classifier* – ResNet-18 backbone adapted to 5–8 roof families. Target ≥95 % top-1 accuracy on synthetic validation set.
+- **ML-6c**: *Configuration Recognizer* – Exhaustive but de-duplicated search across 4520 canonical configurations using IOU-based matching. Implements preprocessing (crop, resize to 120×120, padding, flips, rotations).
+- **ML-6d**: *Ridge Configuration Recognizer* – For each roof part, maximise supporting edge-points within 5 % distance of candidate ridges; refine overlaps via binary search to 90 % coverage threshold.
+- **ML-6e**: *Pipeline Integration* – Expose `/procedural_roof` service endpoint that consumes segmentation mask and returns parameter set \(\{x,y,w,h\}\) plus ridge graph.
+
+**Done when**:
+1. Unit tests cover classifier accuracy, recogniser IOU matching, and ridge detection logic.
+2. End-to-end test returning correct parameters for synthetic multi-roof example passes.
+3. Documentation (this file, README, Ops guide) updated with training instructions and environment variables `RIDGE_MODEL_PATH`, `SYNTH_DATA_PATH`.
+4. GitHub Action extended to train classifier nightly when `SYNTH_DATA_VERSION` changes.
+
+**Files to touch**:
+- `tools/procedural_roof/gen_synth_footprints.py` (extend for ridge dataset)
+- `app/services/procedural_roof/pipeline.py` (add recogniser + ridges)
+- `app/services/procedural_roof/ridge_detection.py` (new)
+- `tests/test_procedural_roof.py` (expand)
+- `README.md` (usage)
+
+---
+
 ## Technical Specifications
 
 ### API Endpoints
@@ -71,119 +95,4 @@ SolarOptima ML micro-service provides automated solar panel assessment and quota
 #### POST `/infer`
 - **Input**: PNG image (256×256 or larger)
 - **Output**: JSON with segmentation mask (256×256)
-- **Response**: `{ "mask": "base64_encoded_mask", "confidence": 0.95 }`
-
-#### POST `/pitch`
-- **Input**: JSON with coordinates and segmentation mask
-- **Output**: Roof pitch estimation
-- **Response**: `{ "pitch_degrees": 25.5, "area_m2": 45.2, "confidence": 0.88 }`
-
-#### POST `/quote`
-- **Input**: JSON with property details and segmentation results
-- **Output**: Complete solar quote
-- **Response**: 
-```json
-{
-  "area_m2": 45.2,
-  "optimal_kwp": 3.5,
-  "estimated_yearly_kwh": 3150,
-  "payback_years": 8.2,
-  "total_cost_gbp": 8750,
-  "items": [
-    {
-      "sku": "PANEL-400W",
-      "quantity": 8,
-      "unit_cost": 180,
-      "total_cost": 1440
-    }
-  ]
-}
-```
-
-### Data Models
-
-#### Segmentation Model
-- **Framework**: SegFormer-B0
-- **Input**: 256×256 RGB aerial imagery
-- **Output**: Binary mask (roof vs. background)
-- **Performance**: <1s inference on CPU
-
-#### Pitch Estimator
-- **Method**: DSM height lookup + planar decomposition
-- **Data Source**: UK LIDAR DSM (Environment Agency)
-- **Accuracy**: ±5° for typical UK roofs
-
-#### Irradiance Calculator
-- **API**: PVGIS v5.2
-- **Coverage**: UK-wide solar resource data
-- **Compliance**: MCS MIS 3001 Issue 5.1
-
-### Database Schema
-
-```sql
-CREATE TABLE components (
-    id SERIAL PRIMARY KEY,
-    pricing_date DATE NOT NULL,
-    sku VARCHAR(50) NOT NULL,
-    cost_gbp DECIMAL(10,2) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_components_sku_date ON components(sku, pricing_date);
-```
-
-### Environment Variables
-
-```bash
-# Database
-DATABASE_URL=postgresql://user:pass@localhost/solaroptima
-
-# External APIs
-PVGIS_API_URL=https://re.jrc.ec.europa.eu/api/v5_2/
-DSM_DATA_PATH=/data/lidar/
-
-# Model paths
-SEGMENTATION_MODEL_PATH=/models/segformer_b0_inria.pth
-PITCH_MODEL_PATH=/models/pitch_estimator.pkl
-
-# Service config
-LOG_LEVEL=INFO
-MAX_IMAGE_SIZE=1024
-```
-
-## Development Workflow
-
-1. **Task Implementation**: Each task (ML-1 through ML-5) should be implemented as a separate GitHub issue with label `cursor-task`
-2. **Code Review**: Human review for hidden side-effects and `.cursorrules` compliance
-3. **Testing**: Unit tests for each component, integration tests for API endpoints
-4. **Documentation**: Update README.md with usage examples for each new endpoint
-
-## Performance Requirements
-
-- **Inference Time**: <2 seconds end-to-end for quote generation
-- **Throughput**: 10 requests/second on single CPU instance
-- **Memory**: <512MB RAM usage
-- **Accuracy**: >90% roof segmentation accuracy on UK aerial imagery
-
-## Security Considerations
-
-- Input validation for all image uploads
-- Rate limiting on API endpoints
-- Secure handling of cost data
-- CORS configuration for Next.js frontend
-- Environment variable management for sensitive data
-
-## Monitoring & Observability
-
-- Structured logging with correlation IDs
-- Health check endpoint (`/health`)
-- Metrics collection (request count, latency, error rates)
-- Model performance monitoring (segmentation accuracy, pitch estimation error)
-
-## Future Enhancements
-
-- Multi-roof property support
-- Shading analysis from surrounding buildings
-- Seasonal variation in yield calculations
-- Integration with property databases (Rightmove, Zoopla)
-- Mobile app API support 
+- **Response**: `
