@@ -5,6 +5,8 @@ from PIL import Image
 import numpy as np
 from fastapi.testclient import TestClient
 from app.main import app
+from app.services.geo_utils import to_projected, to_wgs84
+import math
 
 client = TestClient(app)
 
@@ -80,6 +82,24 @@ def test_infer_large_image():
     assert response.status_code == 200
     data = response.json()
     assert "mask" in data
+
+
+def _haversine_m(lat1, lon1, lat2, lon2):
+    R = 6371000.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
+
+def test_projection_roundtrip_accuracy():
+    # Known Oxford-ish point from the issue doc
+    lat, lon = 51.5589, -1.7969
+    x, y = to_projected(lat, lon, "EPSG:27700")
+    lat_rt, lon_rt = to_wgs84(x, y, "EPSG:27700")
+    err_m = _haversine_m(lat, lon, lat_rt, lon_rt)
+    assert err_m <= 5.0
 
 def test_infer_small_image():
     """Test /infer endpoint with image too small"""
